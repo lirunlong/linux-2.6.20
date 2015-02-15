@@ -45,10 +45,15 @@ struct inode;
 #define SYS_RECVMSG	17		/* sys_recvmsg(2)		*/
 
 typedef enum {
+	/*该套接口尚未分配， 未使用*/
 	SS_FREE = 0,			/* not allocated		*/
+	/*该套接口未连接任何一个对端的套接口*/
 	SS_UNCONNECTED,			/* unconnected to any socket	*/
+	/*正在连接*/
 	SS_CONNECTING,			/* in process of connecting	*/
+	/*已连接一个套接口*/
 	SS_CONNECTED,			/* connected to socket		*/
+	/*正在断开连接的过程*/
 	SS_DISCONNECTING		/* in process of disconnecting	*/
 } socket_state;
 
@@ -58,10 +63,15 @@ typedef enum {
 #include <linux/stringify.h>
 #include <linux/random.h>
 
+/*标识该套接口的发送队列是满的*/
 #define SOCK_ASYNC_NOSPACE	0
+/*标识应用程序通过recv调用，是否在等待数据的接收*/
 #define SOCK_ASYNC_WAITDATA	1
+/*标识非异步的情况下该套接口的发送队列是满的*/
 #define SOCK_NOSPACE		2
+/*用于标识是否设置了SO_PASSCRE选项*/
 #define SOCK_PASSCRED		3
+/*用于标识是否设置了SO_PASSSEC选项*/
 #define SOCK_PASSSEC		4
 
 #ifndef ARCH_HAS_SOCKET_TYPES
@@ -106,13 +116,34 @@ enum sock_type {
  *  @type: socket type (%SOCK_STREAM, etc)
  */
 struct socket {
+	/*用于表示所在的套接口所处的状态的标志*/
 	socket_state		state;
+	/*一组标志位*/
 	unsigned long		flags;
+	/*
+	 * 指向套接口系统调用中选择对应类型的套接口层接口，
+	 *用于将套接口层系统调用映射到传输层对应的协议
+	 *tcp   :inet_stream_ops
+	 *udp   :inet_dgram_ops
+	 *raw   :inet_sockraw_ops
+	 */
 	const struct proto_ops	*ops;
+	/*存储了异步的通知队列*/
 	struct fasync_struct	*fasync_list;
+	/*指向了与该套接口相关联的的file结构的指针*/
 	struct file		*file;
+	/*指向了与该套接口相关连的传输控制块*/
 	struct sock		*sk;
+	/*等待该套接口的进程队列*/
 	wait_queue_head_t	wait;
+	/*
+	 * 套接口类型
+	 * SOCK_STREAM,SOCK_DGRAM,SOCK_RAW
+	 * SOCK_RDM:可靠传送报文接口
+	 * SOCK_SEQPACKET:顺序分组套接口
+	 * SOCK_DCCP:数据包拥塞控制协议套接口
+	 * SOCK_PACKET:混杂模式套接口
+	 */
 	short			type;
 };
 
@@ -123,6 +154,7 @@ struct sockaddr;
 struct msghdr;
 struct module;
 
+/*系统调用->对应的类型的proto_ops ->传输层或ip层*/
 struct proto_ops {
 	int		family;
 	struct module	*owner;

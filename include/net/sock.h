@@ -507,6 +507,7 @@ struct timewait_sock_ops;
  * socket layer -> transport layer interface
  * transport -> network interface is defined by struct inet_proto
  */
+/*从传输层->网络层,tcp_prot  udp_prot  raw_prot*/
 struct proto {
 	void			(*close)(struct sock *sk, 
 					long timeout);

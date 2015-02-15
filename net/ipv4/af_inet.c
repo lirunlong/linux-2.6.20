@@ -308,11 +308,14 @@ lookup_protocol:
 	inet->is_icsk = (INET_PROTOSW_ICSK & answer_flags) != 0;
 
 	if (SOCK_RAW == sock->type) {
+		/*如果type为SOCK_RAW ,则设置本地端口号为协议号*/
 		inet->num = protocol;
+		/*如果协议号为RAW协议，则设置hdrincl为1  标识自己构造ip首部*/
 		if (IPPROTO_RAW == protocol)
 			inet->hdrincl = 1;
 	}
 
+	/*PMTU路径MTU*/
 	if (ipv4_config.no_pmtu_disc)
 		inet->pmtudisc = IP_PMTUDISC_DONT;
 	else
@@ -884,6 +887,7 @@ static struct inet_protosw inetsw_array[] =
                 .prot =       &tcp_prot,
                 .ops =        &inet_stream_ops,
                 .capability = -1,
+				/*no_check=0 始终需要计算校验和*/
                 .no_check =   0,
                 .flags =      INET_PROTOSW_PERMANENT |
 			      INET_PROTOSW_ICSK,

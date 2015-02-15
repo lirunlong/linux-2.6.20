@@ -80,8 +80,11 @@ struct in_addr {
 #define IP_RECVRETOPTS	IP_RETOPTS
 
 /* IP_MTU_DISCOVER values */
+/*不起用路径MTU发现机制，数据包允许分片*/
 #define IP_PMTUDISC_DONT		0	/* Never send DF frames */
+/*在允许修改存储在路由项中的路径MTU(没有锁定）情况下，启用路径MTU发现功能*/
 #define IP_PMTUDISC_WANT		1	/* Use per route hints	*/
+/*启用路径MTU发现功能，通常输出的数据包不分片，对与非stream套接子，则会拒绝发送大于MTU的报文*/
 #define IP_PMTUDISC_DO			2	/* Always DF		*/
 
 #define IP_MULTICAST_IF			32
