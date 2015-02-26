@@ -27,26 +27,42 @@
 #include <linux/hdlc/ioctl.h>
 
 /* Standard interface flags (netdevice->flags). */
+/*该接口激活并且可以传输数据包*/
 #define	IFF_UP		0x1		/* interface is up		*/
+/*表示该接口允许广播*/
 #define	IFF_BROADCAST	0x2		/* broadcast address valid	*/
+/*该标志可以用来控制用于调试目的的大量printk调用，用户程序可以通过ioctl设置次标志*/
 #define	IFF_DEBUG	0x4		/* turn on debugging		*/
+/*根据次标志判断是否是回环设备，而不是根据"lo"名称来判断*/
 #define	IFF_LOOPBACK	0x8		/* is a loopback net		*/
+/*表明设备连接到点对点链路，此标志可有驱动程序设置，或者ifconfig设置， 如果ppp驱动程序设置该标志*/
 #define	IFF_POINTOPOINT	0x10		/* interface is has p-p link	*/
+/*linux未使用该标志， 兼容bsd*/
 #define	IFF_NOTRAILERS	0x20		/* avoid use of trailers	*/
 #define	IFF_RUNNING	0x40		/* interface RFC2863 OPER_UP	*/
+/*表明该接口不支持arp协议，例如点对点接口，如果运行arp 不但不能获得有用信息，反而增加网络传输量*/
 #define	IFF_NOARP	0x80		/* no ARP protocol		*/
 #define	IFF_PROMISC	0x100		/* receive all packets		*/
+/*告诉接口接受所有的组播数据包，仅在设置IFF_MULTICAST设置时，内核在主机执行组播路由时设置该标志，对接口来讲 这个标志是只读的 */
 #define	IFF_ALLMULTI	0x200		/* receive all multicast packets*/
 
+/*主负载均衡群*/
 #define IFF_MASTER	0x400		/* master of a load balancer 	*/
+/*负载均衡代码使用，接口驱动程序无需了解该标志*/
 #define IFF_SLAVE	0x800		/* slave of a load balancer	*/
 
+/*该标志由驱动程序设置，表明该接口支持组播发送,ether_setup默认设置此标志，如果驱动程序不支持组播，需要在初始化时清除该标志*/
 #define IFF_MULTICAST	0x1000		/* Supports multicast		*/
 
+/*通过ifmap选择介质类型*/
 #define IFF_PORTSEL	0x2000          /* can set media type		*/
+/*设备能够在多种介质类型之间切换,例如非屏蔽双绞线或同轴电缆以太网之间，
+ * 如果IFF_AUTOMEDIA标志设置，设备会自动选择介质类型，实际情况中貌似未用该标志*/
 #define IFF_AUTOMEDIA	0x4000		/* auto media select active	*/
+/*该标志由驱动程序使用，表示接口可改变地址，这标志没有被使用，接口关闭时丢弃地址。*/
 #define IFF_DYNAMIC	0x8000		/* dialup device with changing addresses*/
 
+/*该标志表示接口接口已经启动并正在运行*/
 #define IFF_LOWER_UP	0x10000		/* driver signals L1 up		*/
 #define IFF_DORMANT	0x20000		/* driver signals dormant	*/
 
@@ -54,12 +70,19 @@
 		IFF_MASTER|IFF_SLAVE|IFF_RUNNING|IFF_LOWER_UP|IFF_DORMANT)
 
 /* Private (from user) interface flags (netdevice->priv_flags). */
+/*标识一个802.1q VLAN设备*/
 #define IFF_802_1Q_VLAN 0x1             /* 802.1Q VLAN device.          */
+/*以太网桥设备*/
 #define IFF_EBRIDGE	0x2		/* Ethernet bridging device.	*/
+/*标识bonding的slave设备当前未激活*/
 #define IFF_SLAVE_INACTIVE	0x4	/* bonding slave not the curr. active */
+/*表示bonding的802.3ad模式*/
 #define IFF_MASTER_8023AD	0x8	/* bonding master, 802.3ad. 	*/
+/*表示bonding的balance-alb模式*/
 #define IFF_MASTER_ALB	0x10		/* bonding master, balance-alb.	*/
+/*标识是bonding的master或slave设备*/
 #define IFF_BONDING	0x20		/* bonding master or slave	*/
+/*表示bonding的slave设备支持arp*/
 #define IFF_SLAVE_NEEDARP 0x40		/* need ARPs for validation	*/
 
 #define IF_GET_IFACE	0x0001		/* for querying only */
@@ -161,18 +184,28 @@ struct ifreq
 	} ifr_ifrn;
 	
 	union {
+		/*用来获取或设置网络设备的广播地址，点对点对端地址，本地地址，以及网络掩码*/
 		struct	sockaddr ifru_addr;
+		/*下面3个字段目前未使用*/
 		struct	sockaddr ifru_dstaddr;
 		struct	sockaddr ifru_broadaddr;
 		struct	sockaddr ifru_netmask;
+		/*用来获取或设置网络设备的硬件地址*/
 		struct  sockaddr ifru_hwaddr;
+		/*用来获取或设置网络设备的标志*/
 		short	ifru_flags;
+		/*通过ioctl()获取或设置网络设备的操作时，标识网络设备的索引号，网络设备输出队列的长度*/
 		int	ifru_ivalue;
+		/*用来获取或设置网络设备的MTU*/
 		int	ifru_mtu;
+		/*用来获取网络设备的硬件参数，与net_device的mem_start,mem_end,base_addr,irq,dma,if_port相对应*/
 		struct  ifmap ifru_map;
 		char	ifru_slave[IFNAMSIZ];	/* Just fits the size */
+		/*用于设置网络设备新的名称*/
 		char	ifru_newname[IFNAMSIZ];
+		/*在执行SIOCETHTOOL命令时，根据不同的子命令对应不同的结构*/
 		void __user *	ifru_data;
+		/*用来设置相关设备及协议，如高级链路控制(HDLC)等*/
 		struct	if_settings ifru_settings;
 	} ifr_ifru;
 };

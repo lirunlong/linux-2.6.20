@@ -215,11 +215,16 @@ enum
 
 enum rt_scope_t
 {
+	/*地址可以在任何地方使用，这是大多数地址的默认值*/
 	RT_SCOPE_UNIVERSE=0,
 /* User defined values  */
+	/*此地址在一个本地封闭系统中的内部路由*/
 	RT_SCOPE_SITE=200,
+	/*次地址只在一个局域网内有意义，比如广播地址*/
 	RT_SCOPE_LINK=253,
+	/*此地址只用于主机内部通信，如环回地址*/
 	RT_SCOPE_HOST=254,
+	/*此地址目的地址不存在*/
 	RT_SCOPE_NOWHERE=255
 };
 

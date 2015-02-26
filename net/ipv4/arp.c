@@ -340,6 +340,7 @@ static void arp_solicit(struct neighbour *neigh, struct sk_buff *skb)
 	if (!in_dev)
 		return;
 
+	/*arp_announce参数*/
 	switch (IN_DEV_ARP_ANNOUNCE(in_dev)) {
 	default:
 	case 0:		/* By default announce any local IP */

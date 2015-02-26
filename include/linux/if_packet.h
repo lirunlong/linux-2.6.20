@@ -27,9 +27,11 @@ struct sockaddr_ll
 #define PACKET_BROADCAST	1		/* To all		*/
 #define PACKET_MULTICAST	2		/* To group		*/
 #define PACKET_OTHERHOST	3		/* To someone else 	*/
+/*这个包将被发出*/
 #define PACKET_OUTGOING		4		/* Outgoing of any type */
 /* These ones are invisible by user level */
 #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
+/*由快速路由代码查找路由*/
 #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
 
 /* Packet socket options */

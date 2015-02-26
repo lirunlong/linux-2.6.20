@@ -31,9 +31,13 @@
 #define HAVE_ALLOC_SKB		/* For the drivers to know */
 #define HAVE_ALIGNABLE_SKB	/* Ditto 8)		   */
 
+/*表示硬件不支持，完全由软件来计算校验和*/
 #define CHECKSUM_NONE 0
+/*表示由硬件来做校验和*/
 #define CHECKSUM_PARTIAL 1
+/*没必要做校验和*/
 #define CHECKSUM_UNNECESSARY 2
+/*校验和已经完成*/
 #define CHECKSUM_COMPLETE 3
 
 #define SKB_DATA_ALIGN(X)	(((X) + (SMP_CACHE_BYTES - 1)) & \
@@ -110,7 +114,9 @@ struct sk_buff_head {
 	struct sk_buff	*next;
 	struct sk_buff	*prev;
 
+	/*sk_buff结点的个数， 即队列的长度*/
 	__u32		qlen;
+	/*并发操作sk_buff*/
 	spinlock_t	lock;
 };
 
@@ -131,11 +137,15 @@ struct skb_frag_struct {
  * the end of the header data, ie. at skb->end.
  */
 struct skb_shared_info {
+	/*引用计数器，当一个数据块被多个skb描述符引用，如克隆， 就会设置该计数*/
 	atomic_t	dataref;
 	unsigned short	nr_frags;
+	/*生成gso段时的MSS，因为GSO的长度是与发送该段的套接口中合适MSS的整数倍*/
 	unsigned short	gso_size;
 	/* Warning: this field is not always filled in (UFO)! */
+	/*GSO的段的长度是gso_size的倍数*/
 	unsigned short	gso_segs;
+	/*该skb中数据支持的gso类型*/
 	unsigned short  gso_type;
 	__be32          ip6_frag_id;
 	struct sk_buff	*frag_list;
@@ -169,15 +179,20 @@ enum {
 };
 
 enum {
+	/*ipv4的TCP段卸载*/
 	SKB_GSO_TCPV4 = 1 << 0,
+	/*ipv4的udp分片卸载*/
 	SKB_GSO_UDP = 1 << 1,
 
 	/* This indicates the skb is from an untrusted source. */
+	/*表明数据包是从一个不可信赖的来源发出的*/
 	SKB_GSO_DODGY = 1 << 2,
 
 	/* This indicates the tcp segment has CWR set. */
+	/*ipv4的tcp段卸载，当设置tcp首部的cwr时，设置次gso类型*/
 	SKB_GSO_TCP_ECN = 1 << 3,
 
+	/*ipv6的tcp段卸载*/
 	SKB_GSO_TCPV6 = 1 << 4,
 };
 
@@ -229,12 +244,19 @@ enum {
 
 struct sk_buff {
 	/* These two members must be first. */
+	/*这两个字段将sk_buff组织成一个双向循环链表
+	 *链表的头为sk_buff_header类型的变量*/
 	struct sk_buff		*next;
 	struct sk_buff		*prev;
 
 	struct sock		*sk;
+	/*接收时间戳或发送时间戳
+	 *通常在netif_receive_skb() netif_rx()调用
+	 *net_timestamp()设置*/
 	struct skb_timeval	tstamp;
+	/*网络设备指针*/
 	struct net_device	*dev;
+	/*接收报文的原始网络设备*/
 	struct net_device	*input_dev;
 
 	union {
@@ -269,24 +291,37 @@ struct sk_buff {
 	 */
 	char			cb[48];
 
+	/*长度，包含协议首部（向下层传递时，增加，反之 减少），SG类型的聚合分散I/O数据，FRAGLIST类型得分散I/O数据*/
 	unsigned int		len,
+						/*SG类型和FRAGLIST类型聚合分散I/O存储区的数据长度*/
 				data_len,
+				/*二层首部长度，实际长度与网络介质有关，在以太网中是以太网帧首部的长度*/
 				mac_len;
 	union {
 		__wsum		csum;
 		__u32		csum_offset;
 	};
+	/*发送或转发数据包的Qos类别，如果包是本地生成的，套接口层会设置该字段，如果包是转发的，则rt_tos2priority()会根据ip首部中tos域来计算*/
 	__u32			priority;
+	/*表示skb允许在本地分片*/
 	__u8			local_df:1,
+					/*标记skb是否克隆*/
 				cloned:1,
+				/*表示传输层校验和状态，CHECKSUM_NONE,CHECKSUM_UNNESSARY,CHECKSUM_PARTIAL,CHECKSUM_COMPLETE*/
 				ip_summed:2,
+				/*表示payload是否被单独引用，不存在协议首部，如果被引用，则不能修改协议首部，也不能通过skb->data访问协议首部*/
 				nohdr:1,
 				nfctinfo:3;
+	/*帧类型*/
 	__u8			pkt_type:3,
+					/*克隆状态 skb_clone_unavailable skb_clone_orig skb_clone_clone*/
 				fclone:2,
 				ipvs_property:1;
+	/*从二层设备上看到的上层协议，如ip  arp等*/
 	__be16			protocol;
 
+	/*在释放skb时候调用，如果sk成员为NULL，则这个字段一般为空，这个字段一般在skb_set_owner_r() skb_set_owner_w()函数中初始化为sock_rfree()
+	 * sock_wfree()*/
 	void			(*destructor)(struct sk_buff *skb);
 #ifdef CONFIG_NETFILTER
 	struct nf_conntrack	*nfct;
@@ -313,7 +348,9 @@ struct sk_buff {
 	__u32			mark;
 
 	/* These elements must be at the end, see alloc_skb() for details.  */
+	/*skb描述符和数据缓存区的大小，参加alloc_skb()*/
 	unsigned int		truesize;
+	/*保护skb描述符，skb_get,kfree_skb操作这个字段,skb数据区用skb_shared_info 的dataref字段描述*/
 	atomic_t		users;
 	unsigned char		*head,
 				*data,

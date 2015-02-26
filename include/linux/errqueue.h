@@ -3,12 +3,22 @@
 
 struct sock_extended_err
 {
+	/*出错信息的错误码*/
 	__u32	ee_errno;	
+	/*标识出错信息的来源，
+	 * SO_EE_ORIGIN_LOCAL:出错信息来自本地
+	 * SO_EE_ORIGIN_ICMP:出错信息来自icmp消息
+	 * */
 	__u8	ee_origin;
+	/*在出错信息来自icmp消息情况下，标识icmp差错消息的类型，其他情况均为0*/
 	__u8	ee_type;
+	/*在出错信息来自icmp消息情况下，标识icmp差错消息的编码，其他来源均为0*/
 	__u8	ee_code;
+	/*reseverd 0*/
 	__u8	ee_pad;
+	/*出错信息的扩展信息，其意义随出错信息的错误码具体而定。例如：当接受到目的不可达需要分片差错信息时，则为吓一跳的MTU*/
 	__u32   ee_info;
+	/*未使用，填充为0*/
 	__u32   ee_data;
 };
 
@@ -37,7 +47,9 @@ struct sock_exterr_skb
 #endif
 	} header;
 	struct sock_extended_err	ee;
+	/*导致出错的原始数据包的目的地址在负载的icmp报文的ip数据包中的偏移量*/
 	u16				addr_offset;
+	/*对于udp  是出错报文的目的端口，其他情况则为0*/
 	__be16				port;
 };
 

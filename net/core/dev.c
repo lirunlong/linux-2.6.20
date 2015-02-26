@@ -496,6 +496,7 @@ struct net_device *__dev_get_by_name(const char *name)
  *	matching device is found.
  */
 
+/*从dev_name_head散列表中查找 net_device->name_hlist字段*/
 struct net_device *dev_get_by_name(const char *name)
 {
 	struct net_device *dev;
@@ -543,6 +544,7 @@ struct net_device *__dev_get_by_index(int ifindex)
  *	dev_put to indicate they have finished with it.
  */
 
+/*从dev_index_head三列表中查找，net_device->index_hlist字段*/
 struct net_device *dev_get_by_index(int ifindex)
 {
 	struct net_device *dev;
@@ -569,6 +571,7 @@ struct net_device *dev_get_by_index(int ifindex)
  *	If the API was consistent this would be __dev_get_by_hwaddr
  */
 
+/*根据硬件地址类型和硬件地址获取设备，遍历dev_base链表*/
 struct net_device *dev_getbyhwaddr(unsigned short type, char *ha)
 {
 	struct net_device *dev;
@@ -584,6 +587,7 @@ struct net_device *dev_getbyhwaddr(unsigned short type, char *ha)
 
 EXPORT_SYMBOL(dev_getbyhwaddr);
 
+/*根据硬件地址类型遍历dev_base链表，获取第一个符合条件的设备*/
 struct net_device *dev_getfirstbyhwtype(unsigned short type)
 {
 	struct net_device *dev;
@@ -612,6 +616,7 @@ EXPORT_SYMBOL(dev_getfirstbyhwtype);
  *	dev_put to indicate they have finished with it.
  */
 
+/*根据给定的标志获取设备*/
 struct net_device * dev_get_by_flags(unsigned short if_flags, unsigned short mask)
 {
 	struct net_device *dev;
@@ -968,6 +973,7 @@ int dev_close(struct net_device *dev)
  *	view of the network device list.
  */
 
+/*将网络设备事件的函数注册到netdev_chain通知链*/
 int register_netdevice_notifier(struct notifier_block *nb)
 {
 	struct net_device *dev;
@@ -1058,6 +1064,7 @@ static inline void net_timestamp(struct sk_buff *skb)
  *	taps currently in use.
  */
 
+/*接收由本地输出的数据包*/
 static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 {
 	struct packet_type *ptype;
@@ -1069,6 +1076,9 @@ static void dev_queue_xmit_nit(struct sk_buff *skb, struct net_device *dev)
 		/* Never send packets back to the socket
 		 * they originated from - MvS (miquels@drinkel.ow.org)
 		 */
+		/*数据包的输出设备与套接口的输入设备相同 或者套接口数据包为NULL
+		 *该数据包不是由当前比较的套接口输出的(由原始套接口输出的数据包不会在输入给自己)
+		 * */
 		if ((ptype->dev == dev || !ptype->dev) &&
 		    (ptype->af_packet_priv == NULL ||
 		     (struct sock *)ptype->af_packet_priv != skb->sk)) {
@@ -1122,6 +1132,7 @@ void __netif_rx_schedule(struct net_device *dev)
 
 	local_irq_save(flags);
 	dev_hold(dev);
+	/*将设备添加到轮寻队列，在软中断中轮寻接受数据包*/
 	list_add_tail(&dev->poll_list, &__get_cpu_var(softnet_data).poll_list);
 	if (dev->quota < 0)
 		dev->quota += dev->weight;
@@ -1418,6 +1429,7 @@ out_kfree_skb:
  *          --BLG
  */
 
+/*网络层调用这个函数数据数据包到设备层*/
 int dev_queue_xmit(struct sk_buff *skb)
 {
 	struct net_device *dev = skb->dev;
@@ -1580,6 +1592,7 @@ int netif_rx(struct sk_buff *skb)
 	if (netpoll_rx(skb))
 		return NET_RX_DROP;
 
+	/*只有使能SO_TIMESTAMP套接口选项时，才记录时间戳*/
 	if (!skb->tstamp.off_sec)
 		net_timestamp(skb);
 
@@ -1592,7 +1605,7 @@ int netif_rx(struct sk_buff *skb)
 
 	__get_cpu_var(netdev_rx_stat).total++;
 	if (queue->input_pkt_queue.qlen <= netdev_max_backlog) {
-		if (queue->input_pkt_queue.qlen) {
+		if (queue->input_pkt_queue.qlen) {/*不为空 说明已有软中段在处理包*/
 enqueue:
 			dev_hold(skb->dev);
 			__skb_queue_tail(&queue->input_pkt_queue, skb);
@@ -1600,10 +1613,12 @@ enqueue:
 			return NET_RX_SUCCESS;
 		}
 
+		/*软中断中会调用backlog_dev的轮寻函数process_backlog(),将报文传送到上层协议*/
 		netif_rx_schedule(&queue->backlog_dev);
 		goto enqueue;
 	}
 
+	/*丢弃数据包*/
 	__get_cpu_var(netdev_rx_stat).dropped++;
 	local_irq_restore(flags);
 
@@ -1761,6 +1776,7 @@ static int ing_filter(struct sk_buff *skb)
 }
 #endif
 
+/*将skb上传到网络层*/
 int netif_receive_skb(struct sk_buff *skb)
 {
 	struct packet_type *ptype, *pt_prev;
@@ -1775,6 +1791,7 @@ int netif_receive_skb(struct sk_buff *skb)
 	if (!skb->tstamp.off_sec)
 		net_timestamp(skb);
 
+	/*设置原始接受到报文的网络设备*/
 	if (!skb->input_dev)
 		skb->input_dev = skb->dev;
 
@@ -1913,6 +1930,7 @@ static void net_rx_action(struct softirq_action *h)
 	while (!list_empty(&queue->poll_list)) {
 		struct net_device *dev;
 
+		/*本次软中断处理数据包的配额已用完 或者处理时间大于1ms ，则跳转到softnet_break*/
 		if (budget <= 0 || jiffies - start_time > 1)
 			goto softnet_break;
 
@@ -1925,6 +1943,7 @@ static void net_rx_action(struct softirq_action *h)
 		if (dev->quota <= 0 || dev->poll(dev, &budget)) {
 			netpoll_poll_unlock(have);
 			local_irq_disable();
+			/*如果当前设备的配额已经用完 或者是当前设备还有数据包可读, 把当前设备添加到队列末尾*/
 			list_move_tail(&dev->poll_list, &queue->poll_list);
 			if (dev->quota < 0)
 				dev->quota += dev->weight;
@@ -2833,6 +2852,7 @@ int dev_ioctl(unsigned int cmd, void __user *arg)
  *	number.  The caller must hold the rtnl semaphore or the
  *	dev_base_lock to be sure it remains unique.
  */
+/*分配唯一的设备号，用于虚拟隧道设备的唯一标识,s索引号由一个32位的计数器产生，每当分配一个设备号就加1*/
 static int dev_new_index(void)
 {
 	static int ifindex;
@@ -2928,6 +2948,7 @@ int register_netdevice(struct net_device *dev)
  	}
 
 	/* Fix illegal SG+CSUM combinations. */
+	/*只有在网络设备支持支持校验和或者不需要校验和的情况下，才能支持SG类型的分散聚集I/O*/
 	if ((dev->features & NETIF_F_SG) &&
 	    !(dev->features & NETIF_F_ALL_CSUM)) {
 		printk(KERN_NOTICE "%s: Dropping NETIF_F_SG since no checksum feature.\n",
@@ -2936,12 +2957,14 @@ int register_netdevice(struct net_device *dev)
 	}
 
 	/* TSO requires that SG is present as well. */
+	/*TSO需要支持SG类型的分散聚集I/O情况下才能支持*/
 	if ((dev->features & NETIF_F_TSO) &&
 	    !(dev->features & NETIF_F_SG)) {
 		printk(KERN_NOTICE "%s: Dropping NETIF_F_TSO since no SG feature.\n",
 		       dev->name);
 		dev->features &= ~NETIF_F_TSO;
 	}
+	/*UFO需要硬件校验和支持 和 SG类型的分散聚集I/O支持*/
 	if (dev->features & NETIF_F_UFO) {
 		if (!(dev->features & NETIF_F_HW_CSUM)) {
 			printk(KERN_ERR "%s: Dropping NETIF_F_UFO since no "
@@ -2968,6 +2991,7 @@ int register_netdevice(struct net_device *dev)
 	ret = netdev_register_sysfs(dev);
 	if (ret)
 		goto out;
+	/*标识已经注册完成*/
 	dev->reg_state = NETREG_REGISTERED;
 
 	/*
@@ -2975,6 +2999,7 @@ int register_netdevice(struct net_device *dev)
 	 *	device is present.
 	 */
 
+	/*标识设备对系统有用*/
 	set_bit(__LINK_STATE_PRESENT, &dev->state);
 
 	dev->next = NULL;
@@ -3340,6 +3365,7 @@ void unregister_netdev(struct net_device *dev)
 
 EXPORT_SYMBOL(unregister_netdev);
 
+/*cpu状态发生变化  回调函数 处理和当前cpu相关的数据包*/
 static int dev_cpu_callback(struct notifier_block *nfb,
 			    unsigned long action,
 			    void *ocpu)
@@ -3350,6 +3376,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 	unsigned int cpu, oldcpu = (unsigned long)ocpu;
 	struct softnet_data *sd, *oldsd;
 
+	/*处理action=CPU_DEAD的数据包，把当前cpu的数据包转移到其他cpu*/
 	if (action != CPU_DEAD)
 		return NOTIFY_OK;
 
@@ -3358,6 +3385,9 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 	sd = &per_cpu(softnet_data, cpu);
 	oldsd = &per_cpu(softnet_data, oldcpu);
 
+	/*
+	 * 将挂掉cpu的completion_queue转移到当前cpu的softnet_data的completion_queue
+	 * */
 	/* Find end of our completion_queue. */
 	list_skb = &sd->completion_queue;
 	while (*list_skb)
@@ -3366,6 +3396,8 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 	*list_skb = oldsd->completion_queue;
 	oldsd->completion_queue = NULL;
 
+
+	/*output_queue队列移到当前cpu上,并调度当前的发送数据包软中断*/
 	/* Find end of our output_queue. */
 	list_net = &sd->output_queue;
 	while (*list_net)
@@ -3378,6 +3410,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 	local_irq_enable();
 
 	/* Process offline CPU's input_pkt_queue */
+	/*把input_pkt_queue提交给上层*/
 	while ((skb = __skb_dequeue(&oldsd->input_pkt_queue)))
 		netif_rx(skb);
 
@@ -3479,9 +3512,11 @@ static int __init net_dev_init(void)
 
 	BUG_ON(!dev_boot_phase);
 
+	/*注册/proc/net/dev  /proc/net/softnet_stat  /proc/net/wireless, 这3个文件是只读的*/
 	if (dev_proc_init())
 		goto out;
 
+	/*在sysfs文件系统的class中注册net节点*/
 	if (netdev_sysfs_init())
 		goto out;
 

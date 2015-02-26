@@ -10,26 +10,47 @@
 
 struct ipv4_devconf
 {
+	/*是否接收icmp重定向报文*/
 	int	accept_redirects;
+	/*是否启用icmp重定向报文输出*/
 	int	send_redirects;
+	/*是否接受重定向报文，标识只对路由功能的网关*/
 	int	secure_redirects;
+	/*标识是否启用发送(路由器)或接受(主机)RFC1620共享媒体重定向*/
 	int	shared_media;
+	/*是否接收带有SRR选项的数据包*/
 	int	accept_source_route;
+	/*标识是否启用通过反向路径回溯进行源地址验证(在RFC1812定义)*/
 	int	rp_filter;
+	/*标识是否启用arp代理功能*/
 	int	proxy_arp;
+	/*标识是否接收源地址为0.b.c.d  ，目的地址不是本机的数据包，用来支持BOOTP转发服务的进程，该进程将捕获并转发该包*/
 	int	bootp_relay;
+	/*表示是否记录非法地址的数据包到内核日志中*/
 	int	log_martians;
+	/*在ipv4_devconf,表示是否启用ip数据包转发功能，而在ip配置块中，标识是否启用所在网络设备的数据包转发功能*/
 	int	forwarding;
+	/*在ipv4_devconf中，表示是否进行组播路由，而在ip配置块中，标识当前虚拟接口数*/
 	int	mc_forwarding;
+	/*reserved*/
 	int	tag;
+	/*允许从其他设备输出arp应答*/
 	int     arp_filter;
+	/*输出arp请求时，由ip数据包确定源ip地址的规则*/
 	int	arp_announce;
+	/*接受arp请求的过滤规则*/
 	int	arp_ignore;
+	/*处理非arp请求而接受到的arp应答*/
 	int	arp_accept;
+	/*区分不同的媒介*/
 	int	medium_id;
+	/*是否启用XFRM,只用与IPSEC中*/
 	int	no_xfrm;
+	/*是否启用策略路由*/
 	int	no_policy;
+	/*表示当前启用的igmp版本*/
 	int	force_igmp_version;
+	/*表示在删除主地址时，第2地址能否升级为主地址*/
 	int	promote_secondaries;
 	void	*sysctl;
 };
@@ -38,9 +59,13 @@ extern struct ipv4_devconf ipv4_devconf;
 
 struct in_device
 {
+	/*指向所属的网络设备*/
 	struct net_device	*dev;
+	/*引用计数*/
 	atomic_t		refcnt;
+	/*为1时表示所在的ip配置块将要释放，不允许访问其成员*/
 	int			dead;
+	/*存储网络设备的ip地址，因为一个接口可以配置多个ip地址  所以ifa_list是一个链表*/
 	struct in_ifaddr	*ifa_list;	/* IP ifaddr chain		*/
 	rwlock_t		mc_list_lock;
 	struct ip_mc_list	*mc_list;	/* IP multicast filter chain    */
@@ -55,8 +80,10 @@ struct in_device
 	struct timer_list	mr_gq_timer;	/* general query timer */
 	struct timer_list	mr_ifc_timer;	/* interface change timer */
 
+	/*存储一些arp有关的参数*/
 	struct neigh_parms	*arp_parms;
 	struct ipv4_devconf	cnf;
+	/*运用rcu机制释放所在的ip配置块*/
 	struct rcu_head		rcu_head;
 };
 
@@ -85,19 +112,32 @@ struct in_device
 #define IN_DEV_ARP_ANNOUNCE(in_dev)	(max(ipv4_devconf.arp_announce, (in_dev)->cnf.arp_announce))
 #define IN_DEV_ARP_IGNORE(in_dev)	(max(ipv4_devconf.arp_ignore, (in_dev)->cnf.arp_ignore))
 
+/*一个网络接口有多少个ip地址 就有多少个ip地址块*/
 struct in_ifaddr
 {
+	/*一个网络设备的多个ip地址块通过这个字段连接起来*/
 	struct in_ifaddr	*ifa_next;
+	/*指向所属的in_device*/
 	struct in_device	*ifa_dev;
+	/*运用rcu机制来释放对应的ip地址块*/
 	struct rcu_head		rcu_head;
+	/*支持广播的设备上ifa_local ifa_address都是本地ip地址
+	 * 如果是点对点链路上，ifa_address是对端的ip地址，ifa_local是本地的ip地址*/
 	__be32			ifa_local;
 	__be32			ifa_address;
+	/*ip地址的子网掩码*/
 	__be32			ifa_mask;
+	/*广播地址*/
 	__be32			ifa_broadcast;
+	/*未使用*/
 	__be32			ifa_anycast;
+	/*寻址范围,如RT_SCOPE_UNIVERSE*/
 	unsigned char		ifa_scope;
+	/*ip地址属性 如IFA_F_SECONDARY*/
 	unsigned char		ifa_flags;
+	/*子网掩码长度*/
 	unsigned char		ifa_prefixlen;
+	/*地址标签，通常是网络设备名或网络设备别名*/
 	char			ifa_label[IFNAMSIZ];
 };
 
