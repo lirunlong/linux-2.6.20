@@ -37,6 +37,10 @@
 
 static struct sk_buff_head skb_pool;
 
+/*通过netpoll_set_trap来设置，
+ * 非0：处理所有的数据包，不满足条件的直接丢弃，不交由协议站处理
+ * 0:处理满足条件的数据包，不满足条件的交由协议栈处理
+ * */
 static atomic_t trapped;
 
 #define USEC_PER_POLL	50
@@ -439,10 +443,12 @@ int __netpoll_rx(struct sk_buff *skb)
 
 	if (!np)
 		goto out;
+	/*如果不是以太网报文*/
 	if (skb->dev->type != ARPHRD_ETHER)
 		goto out;
 
 	/* check if netpoll clients need ARP */
+	/*如果是arp包，则trapped非0 则将arp包插入npi->arp_tx末尾  返回1*/
 	if (skb->protocol == __constant_htons(ETH_P_ARP) &&
 	    atomic_read(&trapped)) {
 		skb_queue_tail(&npi->arp_tx, skb);
@@ -497,6 +503,7 @@ int __netpoll_rx(struct sk_buff *skb)
 	return 1;
 
 out:
+	/*如果trapped非0 则丢弃，不交由协议站处理*/
 	if (atomic_read(&trapped)) {
 		kfree_skb(skb);
 		return 1;
@@ -612,6 +619,7 @@ int netpoll_parse_options(struct netpoll *np, char *opt)
 	return -1;
 }
 
+/*netpoll实例注册*/
 int netpoll_setup(struct netpoll *np)
 {
 	struct net_device *ndev = NULL;

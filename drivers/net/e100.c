@@ -1948,6 +1948,7 @@ static int e100_rx_alloc_list(struct nic *nic)
 	return 0;
 }
 
+/*e100网络设备驱动中断处理程序*/
 static irqreturn_t e100_intr(int irq, void *dev_id)
 {
 	struct net_device *netdev = dev_id;
@@ -1967,6 +1968,7 @@ static irqreturn_t e100_intr(int irq, void *dev_id)
 	if(stat_ack & stat_ack_rnr)
 		nic->ru_running = RU_SUSPENDED;
 
+	/*如果设备启动 并且没有轮寻设备，则 禁用中断，将设备添加到轮寻队列，并且调度软中断*/
 	if(likely(netif_rx_schedule_prep(netdev))) {
 		e100_disable_irq(nic);
 		__netif_rx_schedule(netdev);

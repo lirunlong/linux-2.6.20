@@ -433,6 +433,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 
 	iph = skb->nh.iph;
 
+	/*如果不允许分片，则调用icmp_send向发送方发送一个原因为需要分片而设置了不分片标志的目的不可达icmp报文*/
 	if (unlikely((iph->frag_off & htons(IP_DF)) && !skb->local_df)) {
 		IP_INC_STATS(IPSTATS_MIB_FRAGFAILS);
 		icmp_send(skb, ICMP_DEST_UNREACH, ICMP_FRAG_NEEDED,
@@ -446,6 +447,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	 */
 
 	hlen = iph->ihl * 4;
+	/*mtu 减去ip头部，实际每个分片的数据的最大大小*/
 	mtu = dst_mtu(&rt->u.dst) - hlen;	/* Size of data space */
 	IPCB(skb)->flags |= IPSKB_FRAG_COMPLETE;
 
@@ -456,24 +458,26 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 	 * LATER: this step can be merged to real generation of fragments,
 	 * we can switch to copy when see the first bad fragment.
 	 */
-	if (skb_shinfo(skb)->frag_list) {
+	if (skb_shinfo(skb)->frag_list) {/*是否支持快速分片*/
 		struct sk_buff *frag;
-		int first_len = skb_pagelen(skb);
+		int first_len = skb_pagelen(skb);/*第一个skb的长度*/
 
 		if (first_len - hlen > mtu ||
-		    ((first_len - hlen) & 7) ||
-		    (iph->frag_off & htons(IP_MF|IP_OFFSET)) ||
-		    skb_cloned(skb))
+		    ((first_len - hlen) & 7) ||/*ip分片中除最后一个分片外，分片长度必须8字节对齐*/
+		    (iph->frag_off & htons(IP_MF|IP_OFFSET)) ||/*skb不是IP_MF 和IP_OFFSET不为0  说明不是一个完整得ip分片*/
+		    skb_cloned(skb))/*skb是克隆的*/
 			goto slow_path;
 
+		/*遍历后续所有分片*/
 		for (frag = skb_shinfo(skb)->frag_list; frag; frag = frag->next) {
 			/* Correct geometry. */
-			if (frag->len > mtu ||
-			    ((frag->len & 7) && frag->next) ||
-			    skb_headroom(frag) < hlen)
-			    goto slow_path;
+			if (frag->len > mtu ||/*分片长度大于mtu*/
+			    ((frag->len & 7) && frag->next) ||/*不是最后一个分片 而且长度不是8字节对齐*/
+			    skb_headroom(frag) < hlen)/*缓存区头部是否容纳下ip头部，*/
+			    goto slow_path;/*不适合快速分片*/
 
 			/* Partially cloned skb? */
+			/*如果分片被克隆，则不适合快速分片*/
 			if (skb_shared(frag))
 				goto slow_path;
 
@@ -488,27 +492,44 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 
 		/* Everything is OK. Generate! */
 
+
+		/*
+		 * 分片以后，每个分片都将是一个独立的ip数据包，因此在此将原来链接在第一个分片frag_list上的所有后继分片取下，同时为了进一步对
+		 * 这些后继skb进行处理，需保存该指针
+		 */
+
 		err = 0;
-		offset = 0;
+		offset = 0;/*初始化片偏移*/
 		frag = skb_shinfo(skb)->frag_list;
 		skb_shinfo(skb)->frag_list = NULL;
+		/*first_len:包括SG类型的IO数据长度,和本身缓存区长度
+		 * skb_headlen(skb)为len-skb_datalen;
+		 * skb->data_len修改为sg类型的io长度，取消其他fraglist的长度
+		 * */
 		skb->data_len = first_len - skb_headlen(skb);
 		skb->len = first_len;
 		iph->tot_len = htons(first_len);
 		iph->frag_off = htons(IP_MF);
-		ip_send_check(iph);
+		ip_send_check(iph);/*首部校验和*/
 
+		/*第一片分片完成*/
+
+		/*发送上一个分片设置后一个分片，从第2个分片开始设置skb和ip首部*/
 		for (;;) {
 			/* Prepare header of the next frame,
 			 * before previous one went down. */
 			if (frag) {
 				frag->ip_summed = CHECKSUM_NONE;
 				frag->h.raw = frag->data;
+				/*data指针减小，len增大，添加ip首部*/
 				frag->nh.raw = __skb_push(frag, hlen);
+				/*copy上一片的ip首部*/
 				memcpy(frag->nh.raw, iph, hlen);
 				iph = frag->nh.iph;
 				iph->tot_len = htons(frag->len);
 				ip_copy_metadata(frag, skb);
+				/*如果在处理第一个分片， 则调用ip_options_fragment(frag)将后续分片中无需复制的ip选项，都填充为IPOPT_NOOP,
+				 * 此后分片都简单的复制上一个分片即可*/
 				if (offset == 0)
 					ip_options_fragment(frag);
 				offset += skb->len - hlen;
@@ -519,11 +540,11 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 				ip_send_check(iph);
 			}
 
-			err = output(skb);
+			err = output(skb);/*发送上一个分片*/
 
 			if (!err)
 				IP_INC_STATS(IPSTATS_MIB_FRAGCREATES);
-			if (err || !frag)
+			if (err || !frag)/*如果上一个分片出错  ，或者是所有分片处理完毕*/
 				break;
 
 			skb = frag;
@@ -531,12 +552,12 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 			skb->next = NULL;
 		}
 
-		if (err == 0) {
+		if (err == 0) {/*所有分片发送成功*/
 			IP_INC_STATS(IPSTATS_MIB_FRAGOKS);
 			return 0;
 		}
 
-		while (frag) {
+		while (frag) {/*发送失败 ，释放后续的frag*/
 			skb = frag->next;
 			kfree_skb(frag);
 			frag = skb;
@@ -545,6 +566,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff*))
 		return err;
 	}
 
+
+	/*慢速分片*/
 slow_path:
 	left = skb->len - hlen;		/* Space per frame */
 	ptr = raw + hlen;		/* Where to start from */

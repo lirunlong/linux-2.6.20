@@ -153,6 +153,7 @@ struct fib_result_nl {
 #define FIB_RES_NETMASK(res)	        (0)
 #endif /* CONFIG_IP_ROUTE_MULTIPATH_WRANDOM */
 
+/*路由表，所有的路由表链接到全局散列表fib_table_hash*/
 struct fib_table {
 	struct hlist_node tb_hlist;
 	u32		tb_id;

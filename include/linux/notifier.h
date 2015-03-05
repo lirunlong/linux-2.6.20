@@ -158,18 +158,27 @@ extern int srcu_notifier_call_chain(struct srcu_notifier_head *,
  */
  
 /* netdevice notifier chain */
+/*网络设备使能时，触发该事件,由dev_open()产生*/
 #define NETDEV_UP	0x0001	/* For now you can't veto a device up/down */
+/*网络设备禁止时，触发该事件 由dev_close()产生*/
 #define NETDEV_DOWN	0x0002
+/*网络设备由于硬件错误而重启，目前未使用*/
 #define NETDEV_REBOOT	0x0003	/* Tell a protocol stack a network interface
 				   detected a hardware crash and restarted
 				   - we can use this eg to kick tcp sessions
 				   once done */
+/*网络设备的状态或配置发生改变时产生，通常flags发生改变时候产生*/
 #define NETDEV_CHANGE	0x0004	/* Notify device state change */
+/*网络设备完成注册时产生，由register_netdevice()产生*/
 #define NETDEV_REGISTER 0x0005
+/*网络设备注销完成时产生，由unregister_netdevice()产生*/
 #define NETDEV_UNREGISTER	0x0006
 #define NETDEV_CHANGEMTU	0x0007
+/*网络设备硬件地址 或相关联的广播地址发生改变时产生*/
 #define NETDEV_CHANGEADDR	0x0008
+/*网络设备要被禁止时产生，由dev_close()产生*/
 #define NETDEV_GOING_DOWN	0x0009
+/*网络设备的名称发生改变时产生*/
 #define NETDEV_CHANGENAME	0x000A
 #define NETDEV_FEAT_CHANGE	0x000B
 

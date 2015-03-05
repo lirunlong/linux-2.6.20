@@ -15,19 +15,27 @@
 #include <linux/spinlock.h>
 #include <asm/atomic.h>
 
+/*对端信息块*/
 struct inet_peer
 {
 	/* group together avl_left,avl_right,v4daddr to speedup lookups */
+	/*用来将对端信息块组织成avl树,v4daddr为key,代表对端的ip地址*/
 	struct inet_peer	*avl_left, *avl_right;
 	__be32			v4daddr;	/* peer's address */
 	__u16			avl_height;
+	/*一个单调递增值，用来设置ip分片中的id域,根据对端地址初始化为随机值*/
 	__u16			ip_id_count;	/* IP ID for the next packet */
+	/*链接到inet_peer_unused_head链表上， 该链表上的对端信息块都是当前闲置的，可回收的*/
 	struct inet_peer	*unused_next, **unused_prevp;
+	/*记录该信息块引用技术为0的时间， 当闲置时间过程时，则回收*/
 	__u32			dtime;		/* the time of last use of not
 						 * referenced entries */
 	atomic_t		refcnt;
+	/*递增id，对端发送分片的计数器*/
 	atomic_t		rid;		/* Frag reception counter */
+	/*tcp中，记录最后一个ack段到达的时间*/
 	__u32			tcp_ts;
+	/*tcp中，记录接收到的段中的时间戳，设置ts_recent的时间*/
 	unsigned long		tcp_ts_stamp;
 };
 

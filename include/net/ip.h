@@ -36,17 +36,28 @@ struct inet_skb_parm
 	struct ip_options	opt;		/* Compiled IP options		*/
 	unsigned char		flags;
 
+	/*组播包已经转发过*/
 #define IPSKB_FORWARDED		1
+	/*IPSEC中，按安全路由链表的安全路由处理数据时会检测ip数据包的尺寸,设置这个标志，以后不会再对其进行检测*/
 #define IPSKB_XFRM_TUNNEL_SIZE	2
+	/*IPSEC中，按安全路由链表的安全路由处理数据后会设置该标志，之后有该标志的数据包，在nat操作后将不会对存在该标志的
+	 * 数据包进行特殊检查*/
 #define IPSKB_XFRM_TRANSFORMED	4
+	/*完成分片*/
 #define IPSKB_FRAG_COMPLETE	8
+	/*IPSEC中，每执行一次ipsec封装处理过程，封装结束后的数据包会设置该标志，标识该标志的数据包不能再进行转发*/
 #define IPSKB_REROUTED		16
 };
 
+/*ip控制信息块*/
 struct ipcm_cookie
 {
+	/*udp数据包或raw数据包的目的地址
+	 * 只有当存在ip选项时才设置，用作源路由选项的最后一条地址*/
 	__be32			addr;
+	/*udp或raw数据包的输出网络设备*/
 	int			oif;
+	/*如果不为NULL 则指向发送数据包的ip选项信息*/
 	struct ip_options	*opt;
 };
 

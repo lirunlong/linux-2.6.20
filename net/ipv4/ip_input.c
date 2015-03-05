@@ -200,6 +200,7 @@ static inline int ip_local_deliver_finish(struct sk_buff *skb)
 {
 	int ihl = skb->nh.iph->ihl*4;
 
+	/*去掉ip首部*/
 	__skb_pull(skb, ihl);
 
         /* Point into the IP datagram, just past the header. */
@@ -208,6 +209,7 @@ static inline int ip_local_deliver_finish(struct sk_buff *skb)
 	rcu_read_lock();
 	{
 		/* Note: See raw.c and net/raw.h, RAWV4_HTABLE_SIZE==MAX_INET_PROTOS */
+		/*从ip首部获取上层协议号，计算哈希值*/
 		int protocol = skb->nh.iph->protocol;
 		int hash;
 		struct sock *raw_sk;
@@ -260,12 +262,14 @@ static inline int ip_local_deliver_finish(struct sk_buff *skb)
 /*
  * 	Deliver IP Packets to the higher protocol layers.
  */ 
+/*经过路由后，skb是发往本地的数据包，投递数据包到协议栈高层*/
 int ip_local_deliver(struct sk_buff *skb)
 {
 	/*
 	 *	Reassemble IP fragments.
 	 */
 
+	/*如果还有更多分片 或offset>0,说明启用ip分片了*/
 	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
 		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
 		if (!skb)
@@ -378,6 +382,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	/* When the interface is in promisc. mode, drop all the crap
 	 * that it receives, do not try to analyse it.
 	 */
+	/*这里是链路层地址不是本地地址的包*/
 	if (skb->pkt_type == PACKET_OTHERHOST)
 		goto drop;
 
@@ -404,17 +409,21 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 	 *	4.	Doesn't have a bogus length
 	 */
 
+	/*长度和版本判断*/
 	if (iph->ihl < 5 || iph->version != 4)
 		goto inhdr_error;
 
+	/*首部长度和skb长度判断*/
 	if (!pskb_may_pull(skb, iph->ihl*4))
 		goto inhdr_error;
 
 	iph = skb->nh.iph;
 
+	/*执行校验和*/
 	if (unlikely(ip_fast_csum((u8 *)iph, iph->ihl)))
 		goto inhdr_error;
 
+	/*ip总长度*/
 	len = ntohs(iph->tot_len);
 	if (skb->len < len || len < (iph->ihl*4))
 		goto inhdr_error;

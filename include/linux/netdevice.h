@@ -183,15 +183,22 @@ DECLARE_PER_CPU(struct netif_rx_stats, netdev_rx_stat);
 struct dev_mc_list
 {	
 	struct dev_mc_list	*next;
+	/*用来存储组播硬件地址*/
 	__u8			dmi_addr[MAX_ADDR_LEN];
+	/*组播硬件地址长度*/
 	unsigned char		dmi_addrlen;
+	/*不同的组播转换为组播硬件地址的数目*/
 	int			dmi_users;
+	/*标识是否通过SIOCADDMULTI选项添加的*/
 	int			dmi_gusers;
 };
 
+/*缓存2层首部*/
 struct hh_cache
 {
+	/*将同属于一个邻居项的多个hh_cache 实例链接起来，neigh_hh_init*/
 	struct hh_cache *hh_next;	/* Next entry			     */
+	/*引用计数*/
 	atomic_t	hh_refcnt;	/* number of users                   */
 /*
  * We want hh_output, hh_len, hh_lock and hh_data be a in a separate
@@ -199,13 +206,17 @@ struct hh_cache
  * They are mostly read, but hh_refcnt may be changed quite frequently,
  * incurring cache line ping pongs.
  */
+	/*缓存的硬件首部中指明的三层协议类型*/
 	__be16		hh_type ____cacheline_aligned_in_smp;
 					/* protocol identifier, f.e ETH_P_IP
                                          *  NOTE:  For VLANs, this will be the
                                          *  encapuslated type. --BLG
                                          */
+	/*缓存的2层首部长度*/
 	u16		hh_len;		/* length of header */
+	/*报文输出函数，如果neigh结构中的output一样 由neigh_ops中的某个输出函数初始化*/
 	int		(*hh_output)(struct sk_buff *skb);
+	/*用于保存hh_cache的自旋锁*/
 	seqlock_t	hh_lock;
 
 	/* cached hardware header; allow for machine alignment needs.        */
@@ -214,6 +225,7 @@ struct hh_cache
 	(HH_DATA_MOD - (((__len - 1) & (HH_DATA_MOD - 1)) + 1))
 #define HH_DATA_ALIGN(__len) \
 	(((__len)+(HH_DATA_MOD-1))&~(HH_DATA_MOD - 1))
+	/*存放2层首部，对于以太网，则是以太网帧的首部*/
 	unsigned long	hh_data[HH_DATA_ALIGN(LL_MAX_HEADER) / sizeof(long)];
 };
 
@@ -237,14 +249,26 @@ struct hh_cache
 
 enum netdev_state_t
 {
+	/*由于热插拔网络设备，缓存不够，网络设备硬件错误或关闭或禁止硬件，从而关闭排队功能*/
 	__LINK_STATE_XOFF=0,
+	/*网络设备处于激活状态*/
 	__LINK_STATE_START,
+	/*在电源管理中，当系统处于待机时，需要挂起各个设备，同时要记录各设备的待机前的状态
+	 * 标识网络设备对系统是可用的，借用此标记来记录待机前的设备状态，以便在系统恢复时
+	 * 是否需要启用该设备
+	 */
 	__LINK_STATE_PRESENT,
+	/*标识网络驱动的数据发送是否在流量控制的调度中*/
 	__LINK_STATE_SCHED,
+	/*标识网络设备是否可传递状态，当网络设备不能传递数据时设置，例如，网线被拔出，此标志可由netif_carrier_ok检测*/
 	__LINK_STATE_NOCARRIER,
+	/*数据包到达而触发中断时，则isr中会设置该状态，标识进入数据包接受状态，
+	 * 然后激活数据包接受软中断，结合poll方式接受数据包，直至此次数据包接受完成。在此状态中，即便有新的中断产生，也不会调度软中断*/
 	__LINK_STATE_RX_SCHED,
+	/*网络设备的连接状态发生改变，正在处理改变过程*/
 	__LINK_STATE_LINKWATCH_PENDING,
 	__LINK_STATE_DORMANT,
+	/*进行流量控制，正在调度队列过程中*/
 	__LINK_STATE_QDISC_RUNNING,
 };
 
@@ -279,8 +303,10 @@ struct net_device
 	 * (i.e. as seen by users in the "Space.c" file).  It is the name
 	 * the interface.
 	 */
+	/*网络设备名*/
 	char			name[IFNAMSIZ];
 	/* device name hash chain */
+	/*根据网络设备名以散列表的形式组织到dev_name_head散列表中*/
 	struct hlist_node	name_hlist;
 
 	/*
@@ -300,8 +326,10 @@ struct net_device
 	unsigned char		if_port;	/* Selectable AUI, TP,..*/
 	unsigned char		dma;		/* DMA channel		*/
 
+	/*设备状态标志，其中包含若干状态和Qos排队规则状态*/
 	unsigned long		state;
 
+	/*将所有的设备连接起来*/
 	struct net_device	*next;
 	
 	/* The device initialization function. Called only once. */
@@ -311,26 +339,40 @@ struct net_device
 
 	/* Net device features */
 	unsigned long		features;
+	/*SG类型的聚合分散I/O标志，当一个数据包被分成多个独立的内存段，并且接口又能传输这样的包，则要设置该标志*/
 #define NETIF_F_SG		1	/* Scatter/gather IO. */
+	/*接口仅能校验IP数据包*/
 #define NETIF_F_IP_CSUM		2	/* Can checksum only TCP/UDP over IPv4. */
 #define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack. */
+	/*由硬件进行校验*/
 #define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
+	/*如果设备可以在高端内存使用DMA，则设置该标志，反之，所有为驱动程序提供的数据包缓存全在低端内存*/
 #define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
+	/*表明设备可以处理SG数据包，在linux2.6中 只有loopback设备可以*/
 #define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
+	/*支持802.1q VLAN数据包的硬件加速等处理*/
 #define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
 #define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
 #define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
+	/*标识设备不支持硬件，支持802.1q Vlan数据包*/
 #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
+	/*标识设备支持某种GSO，在输出数据包时，会得到输出网络设备的特性，这样传输曾可以根据输出网络设备的GSO特性来处理输出的数据*/
 #define NETIF_F_GSO		2048	/* Enable software GSO. */
+	/*标识通过输出网络数据包时是否需要上锁，设置时，不需要上锁*/
 #define NETIF_F_LLTX		4096	/* LockLess TX */
 
 	/* Segmentation offload features */
 #define NETIF_F_GSO_SHIFT	16
 #define NETIF_F_GSO_MASK	0xffff0000
+	/*标识设备支持TCP段卸载*/
 #define NETIF_F_TSO		(SKB_GSO_TCPV4 << NETIF_F_GSO_SHIFT)
+	/*标识设备支持UDP分片卸载*/
 #define NETIF_F_UFO		(SKB_GSO_UDP << NETIF_F_GSO_SHIFT)
+	/*标识设备支持从一个不可信赖源发出数据包进行段卸载*/
 #define NETIF_F_GSO_ROBUST	(SKB_GSO_DODGY << NETIF_F_GSO_SHIFT)
+	/*IPV4的tcp段卸载，当设置tcp首部的cwr时，使用此gso_type*/
 #define NETIF_F_TSO_ECN		(SKB_GSO_TCP_ECN << NETIF_F_GSO_SHIFT)
+	/*标识设备支持ipv6的tcp段卸载*/
 #define NETIF_F_TSO6		(SKB_GSO_TCPV6 << NETIF_F_GSO_SHIFT)
 
 	/* List of features with software fallbacks. */
@@ -339,13 +381,17 @@ struct net_device
 #define NETIF_F_GEN_CSUM	(NETIF_F_NO_CSUM | NETIF_F_HW_CSUM)
 #define NETIF_F_ALL_CSUM	(NETIF_F_IP_CSUM | NETIF_F_GEN_CSUM)
 
+	/*用于链接那些已调度有数据包输出的网络设备的指针*/
 	struct net_device	*next_sched;
 
 	/* Interface index. Unique device identifier	*/
+	/*网络接口索引*/
 	int			ifindex;
+	/*网络设备的唯一标识，主要用于虚拟隧道设备*/
 	int			iflink;
 
 
+	/*提供给应用程序获取网络设备统计信息，如ifconfig输出会调用此函数*/
 	struct net_device_stats* (*get_stats)(struct net_device *dev);
 
 	/* List of functions to handle Wireless Extensions (instead of ioctl).
@@ -363,37 +409,52 @@ struct net_device
 	 */
 
 
+	/*表示接口的一组标志,IFF_UP等*/
 	unsigned int		flags;	/* interface flags (a la BSD)	*/
+	/*记录当前设备的IFF_PROMISC 和IFF_ALLMULTI状态，用来配合flags使用*/
 	unsigned short		gflags;
+	/*与flags相似
+	 * IFF_802_1Q_VLAN等*/
         unsigned short          priv_flags; /* Like 'flags' but invisible to userspace. */
+		/*net_device 32字节对其， 如果分配一个空间p  则dev动与align(p,32)  padded=dev-p,  返回dev 所以 padded 释放时候会用到
+		 * free(dev-padded)*/
 	unsigned short		padded;	/* How much padding added by alloc_netdev() */
 
 	unsigned char		operstate; /* RFC2863 operstate */
 	unsigned char		link_mode; /* mapping policy to operstate */
 
 	unsigned		mtu;	/* interface MTU value		*/
+	/*接口的硬件类型,arp模块中，用type来判断接口的硬件地址类型，对以太网接口 值为ARPHDR_ETHER.
+	 *note:arp协议首部需要填写硬件地址类型*/
 	unsigned short		type;	/* interface hardware type	*/
+	/*硬件首部长度，以太网为14B*/
 	unsigned short		hard_header_len;	/* hardware hdr length	*/
 
+	/*在启用bonding的网络负载均衡后，指向bonding的虚拟网络设备*/
 	struct net_device	*master; /* Pointer to master device of a group,
 					  * which this device is member of.
 					  */
 
 	/* Interface address info. */
+	/*硬件地址，通常初始化时，从设备中读取*/
 	unsigned char		perm_addr[MAX_ADDR_LEN]; /* permanent hw address */
 	unsigned char		addr_len;	/* hardware address length	*/
 	unsigned short          dev_id;		/* for shared network cards */
 
+	/*存储到接口的组播地址链表*/
 	struct dev_mc_list	*mc_list;	/* Multicast mac addresses	*/
+	/*mc_list所包含的项数,链表的节点数*/
 	int			mc_count;	/* Number of installed mcasts	*/
+	/*设置网络设备混杂模式计数器，每次设置退出就会+1 或-1  只有为0 才真正退出混杂模式*/
 	int			promiscuity;
+	/*设置网络设备接受所有组播包的计数器，每次设置退出就会相应+1 -1,只有为0 才真正不接受组播包*/
 	int			allmulti;
 
 
 	/* Protocol specific pointers */
 	
 	void 			*atalk_ptr;	/* AppleTalk link 	*/
-	void			*ip_ptr;	/* IPv4 specific data	*/  
+	void			*ip_ptr;	/* IPv4 specific data	指向in_device*/  
 	void                    *dn_ptr;        /* DECnet specific data */
 	void                    *ip6_ptr;       /* IPv6 specific data */
 	void			*ec_ptr;	/* Econet specific data	*/
@@ -402,12 +463,19 @@ struct net_device
 /*
  * Cache line mostly used on receive path (including eth_type_trans())
  */
+	/*net_device设备通过该字段链接到softnet_data的poll_list成员*/
 	struct list_head	poll_list ____cacheline_aligned_in_smp;
 					/* Link to poll list	*/
 
+	/*NAPI兼容驱动程序提供该方法，用来以轮徇模式接受数据，中断结合poll能显著提高性能*/
 	int			(*poll) (struct net_device *dev, int *quota);
+	/*读取数据包的配额，动态变化，由netdev_budget初始化，每次从网络设备读取数据包后，
+	 * 减去本次读取的数据包，当<=0时，结束本次轮循,等待下次轮循,这样即使某个网络设备有大量数据包输入，
+	 * 也能保证其他网络设备能接受数据包*/
 	int			quota;
+	/*数据包输入软中断中，单个网络设备读取数据包的配额*/
 	int			weight;
+	/*最近一次接受数据包的时间,jiffies*/
 	unsigned long		last_rx;	/* Time of last Rx	*/
 	/* Interface address info used in eth_type_trans() */
 	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address, (before bcast 
@@ -420,92 +488,137 @@ struct net_device
  */
 	/* device queue lock */
 	spinlock_t		queue_lock ____cacheline_aligned_in_smp;
+	/*当前使用的根排队规则，配置的排队规则生效时由qdisk_sleeping设置*/
 	struct Qdisc		*qdisc;
+	/*当前的排队规则，生效时，设置到qdisc*/
 	struct Qdisc		*qdisc_sleeping;
+	/*通过链表方式，记录配置在所在网络设备的所有排队规则，例如，使用里分类规则时，网络设备就会配置多个排队规则*/
 	struct list_head	qdisc_list;
+	/*所在设备发送队列的最大长度,以太网默认设置为1000， 如ifconfig eth0 txqueuelen 2000设置为2000*/
 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
 
 	/* Partially transmitted GSO packet. */
+	/*经软分割的GSO数据包,在控制流量输出过程的数据包输出软中断中，输出第一个数据包时，
+	 * 后续数据包暂时缓存到gso_skb中，在下次数据包输出软中断时，再从gso_skb中取出输出*/
 	struct sk_buff		*gso_skb;
 
 	/* ingress path synchronizer */
+	/*防止多cpu并发排入输入排队规则的自旋锁*/
 	spinlock_t		ingress_lock;
+	/*数据包输入的排队规则*/
 	struct Qdisc		*qdisc_ingress;
 
 /*
  * One part is mostly used on xmit path (device)
  */
 	/* hard_start_xmit synchronizer */
+	/*发送数据包的自旋锁，防止多cpu的并发操作*/
 	spinlock_t		_xmit_lock ____cacheline_aligned_in_smp;
 	/* cpu id of processor entered to hard_start_xmit or -1,
 	   if nobody entered there.
 	 */
+	/*正在通过该网络设备发送数据包的cpu  当为-1时，没有cpu通过该设备发送数据包*/
 	int			xmit_lock_owner;
+	/*私有数据，通过alloc_netdev设置，最好通过netdev_priv()进行访问*/
 	void			*priv;	/* pointer to private data	*/
+	/*驱动提供给上一层发送数据包的接口，在发送数据包时必定会调用该接口*/
 	int			(*hard_start_xmit) (struct sk_buff *skb,
 						    struct net_device *dev);
 	/* These may be needed for future network-power-down code. */
+	/*最近一次发送数据包的时间，jiffies*/
 	unsigned long		trans_start;	/* Time (in jiffies) of last Tx	*/
 
+	/*网络层确定发送数据包已超时，调用驱动程序的tx_timeout的最短时间*/
 	int			watchdog_timeo; /* used by dev_watchdog() */
+	/*网络设备的软件狗，用于检测网络设备处于正常的工作状态时，是否存在由于关闭排队功能而导致发送超时的情况，
+	 * 一旦发送上述情况，就调用驱动的tx_timeout处理*/
 	struct timer_list	watchdog_timer;
 
 /*
  * refcnt is a very hot point, so align it on SMP
  */
 	/* Number of references to this device */
+	/*网络设备的引用计数*/
 	atomic_t		refcnt ____cacheline_aligned_in_smp;
 
 	/* delayed register/unregister */
+	/*用来连接到net_todo_list上
+	 *net_todo_list包含已注销  已经结束的网络设备,在调用unregister_netdevice()注销设备后，会调用
+	 *net_set_todo()将注销的设备连接到net_todo_list链表上，然后调用rtnl_unlock()释放锁，并调用
+	 *netdev_run_todo()完成对网络设备的注销操作
+	 */
 	struct list_head	todo_list;
 	/* device index hash chain */
+	/*根据网络设备的索引，已三列表的形式组织到dev_index_head哈希表上*/
 	struct hlist_node	index_hlist;
 
 	/* register/unregister state machine */
-	enum { NETREG_UNINITIALIZED=0,
+	enum { 
+		/*处于初始化未注册状态*/
+		NETREG_UNINITIALIZED=0,
+		/*完成网络设备的注册状态*/
 	       NETREG_REGISTERED,	/* completed register_netdevice */
+		   /*正在注销网络设备，正在从链表中移除*/
 	       NETREG_UNREGISTERING,	/* called unregister_netdevice */
+		   /*完成网络设备的注销（包括移除/sys文件系统入口），已从链表中移除，但是net_device还没有释放
+			* 在netdev_run_todo函数中  从net_todo_list链表中取出设备，设置该状态*/
 	       NETREG_UNREGISTERED,	/* completed unregister todo */
+		   /*即将释放net_device*/
 	       NETREG_RELEASED,		/* called free_netdev */
 	} reg_state;
 
 	/* Called after device is detached from network. */
+	/*驱动程序销毁指针，如果设置了该函数，则unregister_netdevice()会调用该函数 执行与init相反的操作*/
 	void			(*uninit)(struct net_device *dev);
 	/* Called after last user reference disappears. */
+	/*一般不会被初始化，部分网络设备驱动会初始化为free_netdev()
+	 * 大部分网络设备驱动会在unregister_netdev()函数后直接调用free_netdev()*/
 	void			(*destructor)(struct net_device *dev);
 
 	/* Pointers to interface service routines.	*/
+	/*启动设备函数指针，完成注册所需的系统资源，打开硬件及其所有设置，可用ifconfig 启用网络设备*/
 	int			(*open)(struct net_device *dev);
+	/*关闭网络设备，执行与启用相反的操作， ifconfig*/
 	int			(*stop)(struct net_device *dev);
 #define HAVE_NETDEV_POLL
+	/*根据先前检索到的源和目标硬件地址创建硬件首部，以太网对应的接口为eth_header()*/
 	int			(*hard_header) (struct sk_buff *skb,
 						struct net_device *dev,
 						unsigned short type,
 						void *daddr,
 						void *saddr,
 						unsigned len);
+	/*用来在完成传输数据包之前，arp解析之后，重新创建硬件首部*/
 	int			(*rebuild_header)(struct sk_buff *skb);
 #define HAVE_MULTICAST			 
+	/*将组播地址列表更新到网络设备中，当设备的组播地址列表或标志发生变化时，调用此函数*/
 	void			(*set_multicast_list)(struct net_device *dev);
 #define HAVE_SET_MAC_ADDR  		 
+	/*修改网络设备mac地址接口，需要网络设备支持*/
 	int			(*set_mac_address)(struct net_device *dev,
 						   void *addr);
 #define HAVE_PRIVATE_IOCTL
+	/*ioctl接口功能，如果设备不支持相关操作，则为NULL*/
 	int			(*do_ioctl)(struct net_device *dev,
 					    struct ifreq *ifr, int cmd);
 #define HAVE_SET_CONFIG
+	/*修改设备接口配置接口,不过目前很多驱动程序提供其他接口,如ethtool接口*/
 	int			(*set_config)(struct net_device *dev,
 					      struct ifmap *map);
 #define HAVE_HEADER_CACHE
+	/*通过arp查询结果填充hh_cache结构，通常驱动程序使用默认的eth_header_cache()接口*/
 	int			(*hard_header_cache)(struct neighbour *neigh,
 						     struct hh_cache *hh);
+	/*更新hh_cache结构，通常驱动程序时候eth_header_cache_update()接口*/
 	void			(*header_cache_update)(struct hh_cache *hh,
 						       struct net_device *dev,
 						       unsigned char *  haddr);
 #define HAVE_CHANGE_MTU
+	/*如果驱动程序修改mtu需要做某些特定操作，则需要实现这个函数，否则默认函数即可正确实现相关处理*/
 	int			(*change_mtu)(struct net_device *dev, int new_mtu);
 
 #define HAVE_TX_TIMEOUT
+	/*如果数据包在指定时间内发送失败(如数据包丢失或上锁),这时会调用此接口，负责解决问题 并重新开始数据包发送*/
 	void			(*tx_timeout) (struct net_device *dev);
 
 	void			(*vlan_rx_register)(struct net_device *dev,
@@ -515,20 +628,29 @@ struct net_device
 	void			(*vlan_rx_kill_vid)(struct net_device *dev,
 						    unsigned short vid);
 
+	/*从skb数据包中获取mac原地只，并将复制到haddr缓冲区中，返回值为地址长度，以太网使用eth_header_parse()*/
 	int			(*hard_header_parse)(struct sk_buff *skb,
 						     unsigned char *haddr);
+	/*用于设置与邻居子系统相关的函数，在创建邻居项时被回调，可以被实现*/
 	int			(*neigh_setup)(struct net_device *dev, struct neigh_parms *);
 #ifdef CONFIG_NETPOLL
+	/*网络设备的netpoll信息块，存储与netpoll_info相关的信息,由netpoll_setup设置
+	 * 当支持netpoll时，必须实现npinfo的成员
+	 * */
 	struct netpoll_info	*npinfo;
 #endif
 #ifdef CONFIG_NET_POLL_CONTROLLER
+	/*该函数在禁止中断的情况下，要求驱动程序以轮寻模式在接口上查询事件,通常用于特定的内核网络任务中,
+	 *例如：远程控制台和内核网络调试，模拟网络设备发生中断，从而进行中断处理*/
 	void                    (*poll_controller)(struct net_device *dev);
 #endif
 
 	/* bridge stuff */
+	/*创建一个桥设备时，指向net_bridge_port实例*/
 	struct net_bridge_port	*br_port;
 
 	/* class/net/name entry */
+	/*网络设备注册在/sys/class/net/中的实例*/
 	struct class_device	class_dev;
 	/* space for optional statistics and wireless sysfs groups */
 	struct attribute_group  *sysfs_groups[3];
@@ -551,16 +673,32 @@ static inline void *netdev_priv(struct net_device *dev)
 #define SET_NETDEV_DEV(net, pdev)	((net)->class_dev.dev = (pdev))
 
 struct packet_type {
+	/*标识以太网帧或其他链路层报文承载的网络成协议号*/
 	__be16			type;	/* This is really htons(ether_type). */
+	/*接受从指定网络接口的数据包，如果为NULL，则接受所有接口的数据包*/
 	struct net_device	*dev;	/* NULL is wildcarded here	     */
+	/*
+	 * 协议入口处理函数。第一个参数 待处理报文，第2个参数，当前处理该报文的网络设备，第三个为报文类型，第四个为原始的报文输入网络设备
+	 * 通常情况下 当前处理的网络设备  与原始的网络设备是相同的设备，但在某些情况下是不同的(如启用里bonding来实现负载均衡和失效保护),
+	 * 此时，原始的输入设备是物理设备，当前处理的设备是虚拟网络设备
+	 */
 	int			(*func) (struct sk_buff *,
 					 struct net_device *,
 					 struct packet_type *,
 					 struct net_device *);
+	/*
+	 * gso是网络设备支持传输层的一个功能。
+	 * 当gso数据输出时到达网络设备，如果网络设备不支持gso的情况，则需要传输曾对输出的数据包重新进行gso分段和计算校验和，
+	 * 因此需要网络层提供接口给设备层，能够访问到传输层的gso分段和校验和的计算功能，对输出的数据包进行分段和计算校验和
+	 * gso_segment 回调传输层gso分段方法给大段进行分段，ipv4 实现的函数为inet_gso_segment()
+	 */
 	struct sk_buff		*(*gso_segment)(struct sk_buff *skb,
 						int features);
+	/*回调传输层在分段之前堆伪首部进行校验和计算，ipv4中实现函数为inet_gso_send_check()*/
 	int			(*gso_send_check)(struct sk_buff *skb);
+	/*用来存储各协议族的私有数据，在原始套接口中，用于标识是原始套接口的传输控制块*/
 	void			*af_packet_priv;
+	/*链接不同协议族报文接受历程的链表*/
 	struct list_head	list;
 };
 
@@ -615,11 +753,34 @@ static inline int unregister_gifconf(unsigned int family)
 
 struct softnet_data
 {
+	/*
+	 *数据包输出软中断中，输出数据包的网络设备队列,
+	 *处于网络输出报文状态的网络设备添加到该队列上，在数据包输出软中断中，会遍历该队列
+	 *从网络设备的排队规则中获取数据包并输出
+	 */
 	struct net_device	*output_queue;
+	/*
+	 * 非NAPI的接口层缓存队列，对于非NAPI驱动，通常在硬中断中或通过轮循读取报文后，调用netif_rx()将报文上传到上层，
+	 * 即现将报文上传到input_pkt_queue队列中，然后产生一个数据包输入软中断，由软终端报文将数据包上传到上层，这在接口数据包接受的速率
+	 * 比协议站和应用成快时非常有用，队列长度上线参数netdev_max_backlog
+	 */
 	struct sk_buff_head	input_pkt_queue;
+	/*
+	 * 网络设备轮循队列。
+	 * 处于报文接受状态的设备链接到该队列，在数据包输入软中断中会遍历该队列，通过轮寻方式接受报文
+	 */
 	struct list_head	poll_list;
+	/*
+	 * 完成发送数据包的等待释放队列。需要在适当时机释放发送完成的数据包，在发送报文软中断中会检测该队列,
+	 * 是否将完成发送的数据包添加到该队列，与具体的执行环境有关，发送完成后调用dev_kfree_skb_any(),如果正处于中断处理过程中或中断禁止状态，
+	 * 则会等待释放的skb添加到该队列，否则直接将其释放。
+	 */
 	struct sk_buff		*completion_queue;
 
+	/*
+	 * 用于非NAPI网络驱动的虚拟网络设备，不代表具体的网络设备，用来兼容非NAPI驱动，
+	 * 通过该虚拟网络设备的poll回调函数在接受报文软中断中，从非NAPI的接口层缓存队列input_pkt_queue获取报文像上层传递
+	 */
 	struct net_device	backlog_dev;	/* Sorry. 8) */
 #ifdef CONFIG_NET_DMA
 	struct dma_chan		*net_dma;

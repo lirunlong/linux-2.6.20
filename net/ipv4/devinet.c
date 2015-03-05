@@ -225,7 +225,7 @@ static void inetdev_destroy(struct in_device *in_dev)
 
 	call_rcu(&in_dev->rcu_head, in_dev_rcu_put);
 }
-
+/*检查给定的a，b是否属于同一子网*/
 int inet_addr_onlink(struct in_device *in_dev, __be32 a, __be32 b)
 {
 	rcu_read_lock();
@@ -417,6 +417,7 @@ static int inet_set_ifa(struct net_device *dev, struct in_ifaddr *ifa)
 	return inet_insert_ifa(ifa);
 }
 
+/*根据设备索引号，获取对应的in_device*/
 struct in_device *inetdev_by_index(int ifindex)
 {
 	struct net_device *dev;
@@ -431,11 +432,13 @@ struct in_device *inetdev_by_index(int ifindex)
 
 /* Called only from RTNL semaphored context. No locks. */
 
+/*在in_dev ip地址块中查找与前缀和掩码匹配的主ip地址块*/
 struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, __be32 prefix,
 				    __be32 mask)
 {
 	ASSERT_RTNL();
 
+	/*遍历in_dev的主ip地址块*/
 	for_primary_ifa(in_dev) {
 		if (ifa->ifa_mask == mask && inet_ifa_match(prefix, ifa))
 			return ifa;
@@ -579,6 +582,7 @@ static int inet_rtm_newaddr(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg
  *	Determine a default network mask, based on the IP address.
  */
 
+/*根据指定的ip地址 返回默认的眼吗长度，a类地址8  b类地址 16  c类地址24*/
 static __inline__ int inet_abc_len(__be32 addr)
 {
 	int rc = -1;	/* Something else, probably a multicast. */

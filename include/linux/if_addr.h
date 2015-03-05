@@ -35,13 +35,19 @@ enum
 #define IFA_MAX (__IFA_MAX - 1)
 
 /* ifa_flags */
+/*从属地址*/
 #define IFA_F_SECONDARY		0x01
 #define IFA_F_TEMPORARY		IFA_F_SECONDARY
 
+/*禁止重复地址检测，目前仅在ipv6中使用*/
 #define	IFA_F_NODAD		0x02
+/*移动ipv6的家乡地址，目前仅在ipv6中使用*/
 #define	IFA_F_HOMEADDRESS	0x10
+/*此ip地址不鼓励使用，但也不禁止*/
 #define IFA_F_DEPRECATED	0x20
+/*尝试阶段的ip地址，仍在进行地址检测工作*/
 #define IFA_F_TENTATIVE		0x40
+/*用户的永久性ip地址，如果没有此标志，则会动态配置ip地址*/
 #define IFA_F_PERMANENT		0x80
 
 struct ifa_cacheinfo
