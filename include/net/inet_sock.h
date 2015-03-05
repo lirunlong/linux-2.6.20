@@ -113,17 +113,20 @@ struct inet_sock {
 	__be32			daddr;
 	__be32			rcv_saddr;
 	__be16			dport;
+	/*主机字节序存储的本地端口*/
 	__u16			num;
 	__be32			saddr;
 	__s16			uc_ttl;
 	__u16			cmsg_flags;
 	struct ip_options	*opt;
 	__be16			sport;
+	/*一个单调递增的值，用来赋给ip首部的id域*/
 	__u16			id;
 	__u8			tos;
 	__u8			mc_ttl;
 	__u8			pmtudisc;
 	__u8			recverr:1,
+					/*是否是链接套接字*/
 				is_icsk:1,
 				freebind:1,
 				hdrincl:1,

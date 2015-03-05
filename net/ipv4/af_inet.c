@@ -283,6 +283,7 @@ lookup_protocol:
 	}
 
 	err = -EPERM;
+	/*是否有权能创建socket*/
 	if (answer->capability > 0 && !capable(answer->capability))
 		goto out_rcu_unlock;
 
@@ -527,6 +528,7 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 
 	lock_sock(sk);
 
+	/*未设置地址族*/
 	if (uaddr->sa_family == AF_UNSPEC) {
 		err = sk->sk_prot->disconnect(sk, flags);
 		sock->state = err ? SS_DISCONNECTING : SS_UNCONNECTED;
@@ -563,10 +565,12 @@ int inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
 		break;
 	}
 
+	/*检查是否是阻塞的  或者是阻塞的  超时检查*/
 	timeo = sock_sndtimeo(sk, flags & O_NONBLOCK);
 
 	if ((1 << sk->sk_state) & (TCPF_SYN_SENT | TCPF_SYN_RECV)) {
 		/* Error code is set above */
+		/*如果timeo等于0  返回 ，或者等待传输层状态改变，或者信号到来*/
 		if (!timeo || !inet_wait_for_connect(sk, timeo))
 			goto out;
 
@@ -664,6 +668,7 @@ int inet_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
 	struct sock *sk = sock->sk;
 
 	/* We may need to bind the socket. */
+	/*如果没有指定本地端口，则自动绑定一个随机端口*/
 	if (!inet_sk(sk)->num && inet_autobind(sk))
 		return -EAGAIN;
 

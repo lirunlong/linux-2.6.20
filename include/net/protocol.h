@@ -66,6 +66,7 @@ struct inet6_protocol
 #endif
 
 /* This is used to register socket interfaces for IP protocols.  */
+/*传输层每个协议对应一个这个结构，所有的实例都存放在inetsw_array[]静态数组中*/
 struct inet_protosw {
 	struct list_head list;
 

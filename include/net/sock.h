@@ -111,12 +111,24 @@ struct proto;
  */
 struct sock_common {
 	unsigned short		skc_family;
+	/*等同与tcp的状态*/
 	volatile unsigned char	skc_state;
+	/*SO_REUSEADDR*/
 	unsigned char		skc_reuse;
+	/*if不为0  为输出设备的网络接口的索引*/
 	int			skc_bound_dev_if;
+	/*
+	 *tcp维护一个所有tcp传输控制块的一个散列表tcp_hashinfo,skc_node 用来将所属的tcp传输控制块链接到散列表
+	 *udp维护一个所有udp传输控制块的一个散列表udp_hash,skc用来将所属的传输控制块链接到散列表上
+	 */
 	struct hlist_node	skc_node;
+	/*
+	 * 已绑定端口的传输控制块利用该字段插入到与之绑定端口信息结构为头节点的链表中。释放端口时，从中删除，
+	 * 仅用于基于链接的传输控制块，如TCP
+	 */
 	struct hlist_node	skc_bind_node;
 	atomic_t		skc_refcnt;
+	/*存储tcp状态为establish时 加入到散列表的关键字的值*/
 	unsigned int		skc_hash;
 	struct proto		*skc_prot;
 };
@@ -195,69 +207,150 @@ struct sock {
 #define sk_refcnt		__sk_common.skc_refcnt
 #define sk_hash			__sk_common.skc_hash
 #define sk_prot			__sk_common.skc_prot
+	/*
+	 * 关闭标志，RCV_SHUTDOWN接受关闭，SEND_SHUTDOWN 发送关闭，SHUTDOWN_MASK完全关闭
+	 */
 	unsigned char		sk_shutdown : 2,
+						/*raw udp是否执行校验和*/
 				sk_no_check : 2,
+				/*标识传输层的一些状态
+				 *SOCK_SNDBUF_LOCK:用户通过套接口选项设置了发送缓冲区大小
+				 *SOCK_RCVBUF_LOCK:用户通过套接口选项设置了接受缓冲区大小
+				 *SOCK_BINDADDR_LOCK:绑定了本地地址
+				 *SOCK_BINDPORT_LOCK:绑定了本地端口
+				 **/
 				sk_userlocks : 4;
+	/*套接口协议*/
 	unsigned char		sk_protocol;
+	/*套接口类型*/
 	unsigned short		sk_type;
+	/*接受缓冲区大小的上限*/
 	int			sk_rcvbuf;
+	/*
+	 *同步锁：包括两种锁，一种是用户进程读取数据和网络层向传输层传递数据之间的锁
+	 * 二是控制linux下半步访问本传输控制块的同步锁，以免多个下半步同时访问本传输控制块
+	 */
 	socket_lock_t		sk_lock;
+	/*
+	 *进程等待队列，进程等待链接，等待输出缓冲区，等待读数据时，都会将进程暂存到此队列中.
+	 */
 	wait_queue_head_t	*sk_sleep;
+	/*
+	 * 目的路由缓存。一般都是在创建传输控制块发送数据报文时，发现未设置该字段才从路由表中或路由缓存中查询到相应的路由项来设置该字段
+	 * 这样可以加速数据的输出，后续数据的输出不必再查询路由，某些情况下会刷新此目的路哟缓存，比如断开链接，重新进行链接，tcp重传，重新
+	 * 绑定端口等操作
+	 */
 	struct dst_entry	*sk_dst_cache;
+	/*与ipsec相关的传输策略*/
 	struct xfrm_policy	*sk_policy[2];
+	/*操作目的路由缓存的读写锁*/
 	rwlock_t		sk_dst_lock;
+	/*接受队列sk_receive_queue中所有报文的总长度*/
 	atomic_t		sk_rmem_alloc;
+	/*所在传输控制块，为发送而分配的所有skb数据区的大小*/
 	atomic_t		sk_wmem_alloc;
+	/*分配辅助缓冲区的上限，辅助数据包括进行设置选项，设置过滤时分配的内存和组播设置等*/
 	atomic_t		sk_omem_alloc;
+	/*
+	 * 接受队列，等待用户进程读取，tcp比较特别，接受到的数据不能直接复制到用户空间才缓存在此
+	 * */
 	struct sk_buff_head	sk_receive_queue;
+	/*
+	 *发送队列，在tcp中，此队列也是重传队列，在sk_send_head之前为重传队列，之后为发送队列。
+	 */
 	struct sk_buff_head	sk_write_queue;
+	/*与网络设备的dma相关*/
 	struct sk_buff_head	sk_async_wait_queue;
+	/*发送队列中，所有报文数据的总长度，目前只用于tcp*/
 	int			sk_wmem_queued;
+	/*预分配缓存长度，这只是一个标识，目前只用于tcp，当分配的缓存小于该值时，分配必然成功，否则需重新确认的分配的缓存是否有效*/
 	int			sk_forward_alloc;
 	gfp_t			sk_allocation;
+	/*发送缓冲区长度的上限，发送队列中，报文总长度不能超过该值*/
 	int			sk_sndbuf;
+	/*目的路由设备的特性*/
 	int			sk_route_caps;
+	/*传输层支持的GSO类型*/
 	int			sk_gso_type;
+	/*标识接受缓存下限值*/
 	int			sk_rcvlowat;
+	/*一些状态和标志*/
 	unsigned long 		sk_flags;
+	/*SO_LINGER 那个时间参数*/
 	unsigned long	        sk_lingertime;
 	/*
 	 * The backlog queue is special, it is always used with
 	 * the per-socket spinlock held and requires low latency
 	 * access. Therefore we special case it's implementation.
 	 */
+	/*
+	 *后备接受队列，目前只用户TCP，传输控制块被上锁后(如应用层读取数据),当有新的报文传输到传输控制块时，
+	 *只能把报文放到后备队列，之后有用户进程读取tcp数据时，再从该队列取出，复制到用户空间
+	 */
 	struct {
 		struct sk_buff *head;
 		struct sk_buff *tail;
 	} sk_backlog;
+	/*错误链表，存放详细的出错信息。应用程序通过setsockopt IP_RECVERR选项，即需获取详细出错信息，当有错误发生时，可通过
+	 * recvmsg(),参数为MSG_ERRQUEUE来获取详细的出错信息*/
 	struct sk_buff_head	sk_error_queue;
 	struct proto		*sk_prot_creator;
+	/**/
 	rwlock_t		sk_callback_lock;
+	/*记录当前传输层中发生的最后一次致命错误的错误码，应用层读取后会自动初恢复为初始状态*/
 	int			sk_err,
+				/*用于记录非致命的错误，或者用作在传输控制块被锁定时记录错误的后备队员*/
 				sk_err_soft;
+	/*当前已建立的链接数，没有被accept的*/
 	unsigned short		sk_ack_backlog;
+	/*链接队列长度的上限(listen参数)*/
 	unsigned short		sk_max_ack_backlog;
+	/*用于设置由此套接口输出数据包的Qos类别*/
 	__u32			sk_priority;
+	/*返回连接至该套接口的外部进程的身份认证，目前主要用于PF_UNIX协议族*/
 	struct ucred		sk_peercred;
+	/*套接子层接受时间，初始值为MAX_SCHEDULE_TIMEOUT
+	 *可以通过SO_RCVTIMEO设置接受超时时间
+	 */
 	long			sk_rcvtimeo;
+	/*发送超时时间*/
 	long			sk_sndtimeo;
+	/*套接口过滤器，在传输层对输入的数据包通过BPF过滤代码进行过滤，只对设置了套接口过滤器的进程有效。*/
 	struct sk_filter      	*sk_filter;
+	/*传输控制块存放私有数据的指针*/
 	void			*sk_protinfo;
+	/*通过tcp的不同状态，来实现连接定时器，FIN_WAIT_2定时器及tcp保活定时器*/
 	struct timer_list	sk_timer;
+	/*未启用SOCK_RCVTSTAMP套接口选项时，记录报文接受数据到应用层的时间戳，在启用SOCK_RCVTSTAMP套接口选项时，
+	 * 接受数据到应用层的时间戳记录在SKB的tstamp中*/
 	struct timeval		sk_stamp;
+	/*指向对应套接口的指针*/
 	struct socket		*sk_socket;
+	/* RPC层存放私有数据的指针*/
 	void			*sk_user_data;
 	struct page		*sk_sndmsg_page;
+	/*sk_write_space发送队列第一个未发送的节点，前边的是重传队列，后面的是发送队列*/
 	struct sk_buff		*sk_send_head;
+	/*sk_sndmsg_page中的数据尾的偏移*/
 	__u32			sk_sndmsg_off;
+	/*标识有数据写入套接口，也就是有写书据的请求*/
 	int			sk_write_pending;
 	void			*sk_security;
+	/*当传输控制块的状态发生变化时，唤醒那些等待本套接口的进程，在创建套接口时初始化。*/
 	void			(*sk_state_change)(struct sock *sk);
+	/*当有数据接受到达处理时，唤醒或发信号通知等待本套接口的进程，在创建套接口时被初始化。*/
 	void			(*sk_data_ready)(struct sock *sk, int bytes);
+	/*当发送缓存大小发生变化或套接口释放时，唤醒因等待本套接口而处于睡眠状态的进程，包括sk_sleep队列和fasync_list队列上的进程*/
 	void			(*sk_write_space)(struct sock *sk);
+	/*报告错误的回调函数，如果等待该传输控制块的进程正在睡眠，则将其唤醒*/
 	void			(*sk_error_report)(struct sock *sk);
+	/*用于TCP和PPPoE中，用于接受预备队列和后备队列中的TCP段，tcp接口为tcp_v4_do_rcv,如果预备队列中还存在tcp段，则调用tcp_prequeue_process()
+	 * 预处理，该函数会回调sk_backlog_rcv,如果后备队列中还存在tcp段，则调用 release_sock()处理，也会调用sk_backlog_rcv.该函数在
+	 * 创建套接口的传输控制块时由传输层的backlog_rcv接口初始化*/
   	int			(*sk_backlog_rcv)(struct sock *sk,
 						  struct sk_buff *skb);  
+	/*进行传输控制块的销毁，在释放传输控制块前释放一些其他资源，在sk_free()释放传输控制块时调用，当传输控制块的计数为0时，才真正释放，ipv4中
+	 * 为inet_sock_destruct()*/
 	void                    (*sk_destruct)(struct sock *sk);
 };
 
@@ -378,19 +471,32 @@ static __inline__ void sk_add_bind_node(struct sock *sk,
 
 /* Sock flags */
 enum sock_flags {
+	/*链接已端口，套接口即将关闭*/
 	SOCK_DEAD,
+	/*标志tcp会话即将结束，再接受到FIN时设置*/
 	SOCK_DONE,
+	/*带外数据放入正常的数据流，在普通数据流中接受带外数据*/
 	SOCK_URGINLINE,
+	/*启用tcp传输层的保活定时*/
 	SOCK_KEEPOPEN,
 	SOCK_LINGER,
+	/*协议控制块已释放，ipv4协议未使用*/
 	SOCK_DESTROY,
+	/*套接口支持收发广播报文*/
 	SOCK_BROADCAST,
+	/*标识是否启用段的接受时间作为时间戳*/
 	SOCK_TIMESTAMP,
+	/*在ax25和ipx协议中标识已建立链接，ipv4未使用*/
 	SOCK_ZAPPED,
+	/*标识是否初始化传输控制块的sk_write_space()指针，这样在sock_wfree()中sk_write_space会被调用*/
 	SOCK_USE_WRITE_QUEUE, /* whether to call sk->sk_write_space in sock_wfree */
+	/*记录套接口的调试信息*/
 	SOCK_DBG, /* %SO_DEBUG setting */
+	/*数据包的接受时间作为时间戳*/
 	SOCK_RCVTSTAMP, /* %SO_TIMESTAMP setting */
+	/*使用本地路由还是策略路由*/
 	SOCK_LOCALROUTE, /* route locally only, %SO_DONTROUTE setting */
+	/*发送队列的缓存区最近是否缩小过*/
 	SOCK_QUEUE_SHRUNK, /* write queue has been shrunk recently */
 };
 

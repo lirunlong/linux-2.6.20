@@ -204,6 +204,7 @@ static inline struct sock *reqsk_queue_get_child(struct request_sock_queue *queu
 
 	BUG_TRAP(child != NULL);
 
+	/*递减sk中的sk_ack_backlog变量的值*/
 	sk_acceptq_removed(parent);
 	__reqsk_free(req);
 	return child;

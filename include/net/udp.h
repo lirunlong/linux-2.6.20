@@ -55,12 +55,15 @@ extern rwlock_t udp_hash_lock;
 
 
 /* Note: this must match 'valbool' in sock_setsockopt */
+/*不执行校验和*/
 #define UDP_CSUM_NOXMIT		1
 
 /* Used by SunRPC/xprt layer. */
+/*只用与SunRPC*/
 #define UDP_CSUM_NORCV		2
 
 /* Default, as per the RFC, is to always do csums. */
+/*默认执行校验和*/
 #define UDP_CSUM_DEFAULT	0
 
 extern struct proto udp_prot;
