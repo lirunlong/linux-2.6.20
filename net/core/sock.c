@@ -891,6 +891,7 @@ void sk_free(struct sock *sk)
 	module_put(owner);
 }
 
+/*克隆一个新的传输控制块*/
 struct sock *sk_clone(const struct sock *sk, const gfp_t priority)
 {
 	struct sock *newsk = sk_alloc(sk->sk_family, priority, sk->sk_prot, 0);
@@ -1036,6 +1037,7 @@ unsigned long sock_i_ino(struct sock *sk)
 /*
  * Allocate a skb from the socket's send buffer.
  */
+/*分配发送缓冲区，在tcp中，只是在构造SYN+ACK时使用，发送用户数据时，通常使用skb_alloc_send_skb*/
 struct sk_buff *sock_wmalloc(struct sock *sk, unsigned long size, int force,
 			     gfp_t priority)
 {
@@ -1103,16 +1105,21 @@ static long sock_wait_for_wmem(struct sock * sk, long timeo)
 
 	clear_bit(SOCK_ASYNC_NOSPACE, &sk->sk_socket->flags);
 	for (;;) {
+		/*超时时间过，返回*/
 		if (!timeo)
 			break;
+		/*有信号产生， 返回*/
 		if (signal_pending(current))
 			break;
 		set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
 		prepare_to_wait(sk->sk_sleep, &wait, TASK_INTERRUPTIBLE);
+		/*如果发送缓冲区空闲，返回 尝试从新分配内存*/
 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf)
 			break;
+		/*如果发送端关闭，返回，不允许分配发送skb*/
 		if (sk->sk_shutdown & SEND_SHUTDOWN)
 			break;
+		/*如果出错， 返回 ，返回错误码到用户空间*/
 		if (sk->sk_err)
 			break;
 		timeo = schedule_timeout(timeo);
@@ -1147,9 +1154,11 @@ static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
 			goto failure;
 
 		err = -EPIPE;
+		/*如果发送端关闭 ，则不分配发送skb*/
 		if (sk->sk_shutdown & SEND_SHUTDOWN)
 			goto failure;
 
+		/*如果所分配的发送缓冲区没有超过上限，则继续操作*/
 		if (atomic_read(&sk->sk_wmem_alloc) < sk->sk_sndbuf) {
 			skb = alloc_skb(header_len, gfp_mask);
 			if (skb) {
@@ -1210,6 +1219,7 @@ failure:
 	return NULL;
 }
 
+/*主要为udp和raw套接口分配用于输出的SKB*/
 struct sk_buff *sock_alloc_send_skb(struct sock *sk, unsigned long size, 
 				    int noblock, int *errcode)
 {

@@ -44,11 +44,17 @@
 #include <linux/errqueue.h>
 #include <asm/uaccess.h>
 
+/*标识是否通过IP_PKTOPTIONS选项或通过recvmsg系统调用获取有关本端地址等信息*/
 #define IP_CMSG_PKTINFO		1
+/*标识是否通过IP_PKTOPTIONS选项或通过recvmsg系统调用获取发送组播报文的TTL*/
 #define IP_CMSG_TTL		2
+/*标识是否通过recvmsg获取报文的TOS*/
 #define IP_CMSG_TOS		4
+/*标识是否通过recvmsg获取当前ip数据包首部的ip选项*/
 #define IP_CMSG_RECVOPTS	8
+/*类似与IP_RECVOPTS选项，不同的是获取未处理时间戳选项和记录路由选项的ip选项*/
 #define IP_CMSG_RETOPTS		16
+/*标识是否通过recvmsg获取有关安全的信息*/
 #define IP_CMSG_PASSSEC		32
 
 /*

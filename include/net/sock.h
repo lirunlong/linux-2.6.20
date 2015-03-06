@@ -77,8 +77,17 @@
  */
 struct sock_iocb;
 typedef struct {
+	/*用来实现下半部间的同步锁，同时也用与保护对owner的操作*/
 	spinlock_t		slock;
+	/*
+	 * 虽然owner为sock_iocb 类型，实际上只拥0，1标识
+	 * 0：未被用户进程锁定
+	 * 1：被用户进程锁定
+	 * */
 	struct sock_iocb	*owner;
+	/*等待队列，当进程调用lock_soc()对传输控制块进行上锁时，如果此时传输控制块已被软中断锁定，则此时进程只能睡眠，并将进程添加到此队列
+	 * 当中断解锁传输控制块时，会唤醒此队列上的进程
+	 * */
 	wait_queue_head_t	wq;
 	/*
 	 * We express the mutex-alike socket_lock semantics
@@ -626,7 +635,9 @@ struct proto {
 
 	int			(*ioctl)(struct sock *sk, int cmd,
 					 unsigned long arg);
+	/*传输层接口初始话，在创建套接口时，在inet_create函数中调用*/
 	int			(*init)(struct sock *sk);
+	/*没有与之对应的系统调用，当关闭套接口时调用*/
 	int			(*destroy)(struct sock *sk);
 	void			(*shutdown)(struct sock *sk, int how);
 	int			(*setsockopt)(struct sock *sk, int level, 
@@ -654,17 +665,26 @@ struct proto {
 	int			(*bind)(struct sock *sk, 
 					struct sockaddr *uaddr, int addr_len);
 
+	/*用于接受预备队列和后备队列中的段*/
 	int			(*backlog_rcv) (struct sock *sk, 
 						struct sk_buff *skb);
 
 	/* Keeping track of sk's, looking them up, and port selection methods. */
+	/*hash为添加到管理传输控制块散列表的接口，unhash为从管理传输控制块散列表删除的接口
+	 * 不同的传输层协议组织管理传输控制块不一样，因此需要提供不同的方法，tcp为tcp_v4_hash 和tcp_unhash.
+	 * udp不许要hash接口 只有unhash接口*/
 	void			(*hash)(struct sock *sk);
 	void			(*unhash)(struct sock *sk);
+	/*实现地址与端口的绑定，snum为绑定的端口，如果为0，则自动选择一个临时端口，tcp为tcp_v4_get_port  udp为udp_v4_get_port*/
 	int			(*get_port)(struct sock *sk, unsigned short snum);
 
 	/* Memory pressure */
+	/*目前只有tcp使用，当前整个tcp传输层中为缓冲区分配的内存超过tcp_mem[1]，便进入告警状态，会调用此接口设置告警状态，
+	 * 在tcp中 指向tcp_enter_memory_pressure*/
 	void			(*enter_memory_pressure)(void);
+	/*目前tcp使用，标识当前tcp传输层中为缓冲区分配的内存(包括输入缓冲队列),在tcp中为tcp_memory_allocated*/
 	atomic_t		*memory_allocated;	/* Current allocated memory. */
+	/*标识当前在tcp中已创建的套接口的数目，目前只在tcp中使用，它指向变量tcp_sockets_allocated*/
 	atomic_t		*sockets_allocated;	/* Current number of sockets. */
 	/*
 	 * Pressure flag: try to collapse.
@@ -672,28 +692,45 @@ struct proto {
 	 * All the sk_stream_mem_schedule() is of this nature: accounting
 	 * is strict, actions are advisory and have some latency.
 	 */
+	/*
+	 * 标志，目前只在tcp中使用，在tcp传输层中 缓冲大小进入警告状态时，置1，否则置0，指向变量tcp_memory_presssure
+	 */
 	int			*memory_pressure;
+	/*sysctl_tcp_mem*/
 	int			*sysctl_mem;
+	/*sysctl_tcp_wmem*/
 	int			*sysctl_wmem;
+	/*sysctl_tcp_rmem*/
 	int			*sysctl_rmem;
+	/*目前只在tcp中使用，tcp首部的最大长度，考虑了所有的选项*/
 	int			max_header;
 
+	/*用来分配传输控制块的slab高速缓存*/
 	struct kmem_cache		*slab;
+	/*传输控制块大小*/
 	unsigned int		obj_size;
 
+	/*目前只在tcp中使用，标识整个tcp传输层中待销毁的套接口的数目。在tcp中，它指向变量tcp_orphan_count*/
 	atomic_t		*orphan_count;
 
+	/*目前只在tcp中使用，指向链接请求处理接口集合，包括发送SYN+ACK实现*/
 	struct request_sock_ops	*rsk_prot;
+	/*目前只在tcp中使用，指向timewait控制块操作接口,tcp中为tcp_timewait_sock_ops.
+	 * timewait_sock_ops提供两个操作接口，tcp_twsk_unique()用于检测被timewait控制块绑定的端口是否可用，
+	 * 而twsk_destructor()用于在释放timewait控制块时，在启用MD5数字签名的情况下做一些清理工作*/
 	struct timewait_sock_ops *twsk_prot;
 
 	struct module		*owner;
 
+	/*传输层名称，tcp协议为tcp   udp协议为UDP*/
 	char			name[32];
 
+	/*注册到proto_list中*/
 	struct list_head	node;
 #ifdef SOCK_REFCNT_DEBUG
 	atomic_t		socks;
 #endif
+	/*统计每个cpu的proto状态*/
 	struct {
 		int inuse;
 		u8  __pad[SMP_CACHE_BYTES - sizeof(int)];
@@ -1304,6 +1341,13 @@ static inline unsigned long sock_wspace(struct sock *sk)
 	return amt;
 }
 
+/*
+ *@how 1:检测标识应用程序通过recv等调用时，是否在等待数据的接受
+ *		2:检测传输控制块的发送队列是否达到上限
+ *  	0:不做任何检测，直接向等待进程发送SIGIO信号
+ *		3:向等待进程发送SIGURG信号
+ *@band POLL_IN POLL_OUT POLL_MSG POLL_ERR POLL_PRI POLL_HUP
+ */
 static inline void sk_wake_async(struct sock *sk, int how, int band)
 {
 	if (sk->sk_socket && sk->sk_socket->fasync_list)

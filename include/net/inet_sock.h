@@ -107,40 +107,68 @@ struct inet_sock {
 	/* sk and pinet6 has to be the first two members of inet_sock */
 	struct sock		sk;
 #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+	/*如果支持ipv6，pinet6指向ipv6控制块*/
 	struct ipv6_pinfo	*pinet6;
 #endif
 	/* Socket demultiplex comparisons on incoming packets. */
+	/*目的ip地址*/
 	__be32			daddr;
+	/*已绑定的本地ip地址,接受数据时，作为条件的一部分，查找所属的传输控制块*/
 	__be32			rcv_saddr;
+	/*目的端口*/
 	__be16			dport;
 	/*主机字节序存储的本地端口*/
 	__u16			num;
+	/*标识本地ip地址，在发送数据时使用。saddr和rcv_addr都标识本地ip地址，用途不同*/
 	__be32			saddr;
+	/*单播报文的TTL，默认值是-1，表示使用默认的TTL值，在输出数据包时，TTL值先从这里获取，如果没有设置，则从路由缓存的metric获取*/
 	__s16			uc_ttl;
+	/*存放一些IPPROTO_IP级别的选项值，可能的取值为IP_CMSG_PKTINFO等*/
 	__u16			cmsg_flags;
+	/*指向ip数据包选项的指针*/
 	struct ip_options	*opt;
+	/*由num转换的网络字节需的源端口*/
 	__be16			sport;
 	/*一个单调递增的值，用来赋给ip首部的id域*/
 	__u16			id;
+	/*用于设置ip数据包首部的tos域*/
 	__u8			tos;
+	/*用于设置多播数据包的ttl*/
 	__u8			mc_ttl;
+	/*标识套接口是否启用路径MTU发现功能，初始值是根据系统控制参数ip_no_pmtu_disc来确定*/
 	__u8			pmtudisc;
+	/*标识是否允许接收扩展的可靠错误信息*/
 	__u8			recverr:1,
 					/*是否是链接套接字*/
 				is_icsk:1,
+				/*标识是否允许绑定非主机地址*/
 				freebind:1,
+				/*标识ip首部是否由用户数据构建*/
 				hdrincl:1,
+				/*标识组播是否发向回路*/
 				mc_loop:1;
+	/*发送组播报文的网络设备索引号，如果为0 ，则可以从任何接口发送*/
 	int			mc_index;
+	/*发送组播报文的源地址*/
 	__be32			mc_addr;
+	/*所在的套接口加入的组播地址列表*/
 	struct ip_mc_socklist	*mc_list;
+	/*udp或原始ip在每次发送时缓存的一些临时信息，如udp和原始ip数据包分片的大小*/
 	struct {
+		/*IPCORK_OPT:标识ip选项是否已在cork的opt成员中
+		 *IPCORK_ALLFRAG:总是分片*/
 		unsigned int		flags;
+		/*udp数据包和原始ip数据包分片的大小*/
 		unsigned int		fragsize;
+		/*指向此次发送数据包的ip选项*/
 		struct ip_options	*opt;
+		/*发送数据包使用的输出路由缓存项*/
 		struct rtable		*rt;
+		/*当前发送的数据包的数据长度*/
 		int			length; /* Total length of all frames */
+		/*输出ip数据包的目的地址*/
 		__be32			addr;
+		/*拥flowi来缓存目的地址，目的端口，源地址，源端口，构造udp报文时，有关信息就取自这里*/
 		struct flowi		fl;
 	} cork;
 };

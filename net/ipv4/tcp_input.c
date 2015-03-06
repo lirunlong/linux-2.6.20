@@ -2900,6 +2900,7 @@ static void tcp_fin(struct sk_buff *skb, struct sock *sk, struct tcphdr *th)
 	/* It _is_ possible, that we have something out-of-order _after_ FIN.
 	 * Probably, we should reset in this case. For now drop them.
 	 */
+	/*如果收到fin 清楚所有乱需队列的数据*/
 	__skb_queue_purge(&tp->out_of_order_queue);
 	if (tp->rx_opt.sack_ok)
 		tcp_sack_reset(&tp->rx_opt);

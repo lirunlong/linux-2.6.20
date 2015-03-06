@@ -1669,6 +1669,7 @@ process:
 
 	bh_lock_sock_nested(sk);
 	ret = 0;
+	/*如果未被进程上锁，则将数据输入到接受队列，否则放到后备队列*/
 	if (!sock_owned_by_user(sk)) {
 #ifdef CONFIG_NET_DMA
 		struct tcp_sock *tp = tcp_sk(sk);
