@@ -33,6 +33,9 @@
 
 #define NET_DMA_DEFAULT_COPYBREAK 4096
 
+/*
+ *启用CONFIG_NET_DMA后，TCP套接口读取数据时启用DMA复制引擎的下限，默认值为4096B
+ */
 int sysctl_tcp_dma_copybreak = NET_DMA_DEFAULT_COPYBREAK;
 
 /**

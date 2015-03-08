@@ -79,7 +79,13 @@ int sysctl_tcp_fack __read_mostly = 1;
 int sysctl_tcp_reordering __read_mostly = TCP_FASTRETRANS_THRESH;
 int sysctl_tcp_ecn __read_mostly;
 int sysctl_tcp_dsack __read_mostly = 1;
+/*
+ *为应用程序缓存保留max(window/2^tcp_app_win,mss)大小的窗口，如果为0时，表示不需要缓存，默认值为31
+ */
 int sysctl_tcp_app_win __read_mostly = 31;
+/*
+ *在开启了通过调节接收窗口来进行流量控制的情况下，计算调整接收缓存和接收窗口时，对用来计算接收缓存的参数进行微调
+ */
 int sysctl_tcp_adv_win_scale __read_mostly = 2;
 
 int sysctl_tcp_stdurg __read_mostly;
@@ -89,6 +95,12 @@ int sysctl_tcp_frto __read_mostly;
 int sysctl_tcp_nometrics_save __read_mostly;
 
 int sysctl_tcp_moderate_rcvbuf __read_mostly = 1;
+/*标识是否启用ABC ，在RFC3465定义
+ * 是根据的ack确认的字节数来控制拥赛窗口的一种方法
+ * 0:禁用abc,每次收到ack 都会增长拥塞窗口
+ * 1:累计确认增长一个全尺寸的段后，才会增长拥塞窗口
+ * 2:如果接收方启用了延时确认，累计确认了两个全尺寸的段后，才会增长拥塞窗口
+ * */
 int sysctl_tcp_abc __read_mostly;
 
 #define FLAG_DATA		0x01 /* Incoming frame contained data.		*/
