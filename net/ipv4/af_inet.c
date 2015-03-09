@@ -198,6 +198,7 @@ int inet_listen(struct socket *sock, int backlog)
 		goto out;
 
 	old_state = sk->sk_state;
+	/*只有close状态才能进入到listen状态*/
 	if (!((1 << old_state) & (TCPF_CLOSE | TCPF_LISTEN)))
 		goto out;
 
@@ -209,6 +210,7 @@ int inet_listen(struct socket *sock, int backlog)
 		if (err)
 			goto out;
 	}
+	/*如果已经是listen装态 则值修改连接队列长度上限参数*/
 	sk->sk_max_ack_backlog = backlog;
 	err = 0;
 

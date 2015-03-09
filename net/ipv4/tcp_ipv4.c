@@ -82,6 +82,10 @@
 #include <linux/scatterlist.h>
 
 int sysctl_tcp_tw_reuse __read_mostly;
+/*
+ * 在启用时，tcp段的接收在进程上下文，而不启用时，如果用户进程正在读取数据，此时复制数据到用户空间可以在软中断中进行，可以
+ * 提高TCP/IP协议栈的吞吐量
+ */
 int sysctl_tcp_low_latency __read_mostly;
 
 /* Check TCP sequence numbers in ICMP packets. */

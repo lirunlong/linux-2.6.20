@@ -75,9 +75,14 @@
 int sysctl_tcp_timestamps __read_mostly = 1;
 int sysctl_tcp_window_scaling __read_mostly = 1;
 int sysctl_tcp_sack __read_mostly = 1;
+/*标识是否启用FACK的拥塞避免和快速重传功能，默认值为1，只有当tcp_sack启用时，该参数才有效*/
 int sysctl_tcp_fack __read_mostly = 1;
 int sysctl_tcp_reordering __read_mostly = TCP_FASTRETRANS_THRESH;
+/*标识是否启用tcp的显示拥塞通知功能*/
 int sysctl_tcp_ecn __read_mostly;
+/*
+ *标识是否支持tcp发送确认段中的SACK选项存在D-SACK.默认值为1
+ */
 int sysctl_tcp_dsack __read_mostly = 1;
 /*
  *为应用程序缓存保留max(window/2^tcp_app_win,mss)大小的窗口，如果为0时，表示不需要缓存，默认值为31
@@ -90,7 +95,12 @@ int sysctl_tcp_adv_win_scale __read_mostly = 2;
 
 int sysctl_tcp_stdurg __read_mostly;
 int sysctl_tcp_rfc1337 __read_mostly;
+/*系统最多能处理多少个不属于任何进程的套接口，孤儿套接口，默认为16384*/
 int sysctl_tcp_max_orphans __read_mostly = NR_FILE;
+/*
+ * 是否启用F-RTO，默认值为0
+ * 在无线环境中特别有效，丢包不是因为拥塞  而是由于其他原因 所以这个时候没必要执行拥塞避免和慢启动
+ */
 int sysctl_tcp_frto __read_mostly;
 int sysctl_tcp_nometrics_save __read_mostly;
 

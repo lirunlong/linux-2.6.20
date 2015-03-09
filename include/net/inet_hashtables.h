@@ -73,10 +73,18 @@ struct inet_ehash_bucket {
  * users logged onto your box, isn't it nice to know that new data
  * ports are created in O(1) time?  I thought so. ;-)	-DaveM
  */
+/*存储管理已绑定的端口的信息*/
 struct inet_bind_bucket {
+	/*已绑定的端口，*/
 	unsigned short		port;
+	/*标识端口是否能重用
+	 * 0:此端口已通过bind系统调用绑定，但不能重用
+	 * 1:此端口已通过bind系统调用绑定，能重用
+	 * -1:此端口被客户端动态绑定(inet_hash_connect()进行绑定）
+	 * */
 	signed short		fastreuse;
 	struct hlist_node	node;
+	/*绑定在该端口上的传输控制块链表*/
 	struct hlist_head	owners;
 };
 
@@ -100,11 +108,13 @@ struct inet_hashinfo {
 	 * First half of the table is for sockets not in TIME_WAIT, second half
 	 * is for TIME_WAIT sockets only.
 	 */
+	/*ehash指向一个大小为ehash_size的inet_ehash_bucket结构类型的散列表，用来管理tcp状态除listen之外的的传输控制块的散列表*/
 	struct inet_ehash_bucket	*ehash;
 
 	/* Ok, let's try this, I give up, we do need a local binding
 	 * TCP hash as well as the others for fast bind/connect.
 	 */
+	/*大小为bhash_size的bhash散列表主要用来存储已绑定端口信息的散列表*/
 	struct inet_bind_hashbucket	*bhash;
 
 	int				bhash_size;
@@ -114,6 +124,7 @@ struct inet_hashinfo {
 	 * table where wildcard'd TCP sockets can exist.  Hash function here
 	 * is just local port number.
 	 */
+	/*用来存储管理listen状态的传输控制块链表*/
 	struct hlist_head		listening_hash[INET_LHTABLE_SIZE];
 
 	/* All the above members are written once at bootup and

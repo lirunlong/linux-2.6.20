@@ -269,6 +269,9 @@
 #include <asm/uaccess.h>
 #include <asm/ioctls.h>
 
+ /*
+  * FIN_WAIT_2的时间
+  */
 int sysctl_tcp_fin_timeout __read_mostly = TCP_FIN_TIMEOUT;
 
 DEFINE_SNMP_STAT(struct tcp_mib, tcp_statistics) __read_mostly;
@@ -277,6 +280,9 @@ atomic_t tcp_orphan_count = ATOMIC_INIT(0);
 
 EXPORT_SYMBOL_GPL(tcp_orphan_count);
 
+/*3个整数，分别对应low ,pressure,high
+ * low:当tcp使用的内存页面数小于该值时，tcp不考虑释放内存，且分配总能成功
+ */
 int sysctl_tcp_mem[3] __read_mostly;
 int sysctl_tcp_wmem[3] __read_mostly;
 int sysctl_tcp_rmem[3] __read_mostly;

@@ -312,7 +312,7 @@ struct sock {
 				sk_err_soft;
 	/*当前已建立的链接数，没有被accept的*/
 	unsigned short		sk_ack_backlog;
-	/*链接队列长度的上限(listen参数)*/
+	/*连接队列长度的上限(listen参数)*/
 	unsigned short		sk_max_ack_backlog;
 	/*用于设置由此套接口输出数据包的Qos类别*/
 	__u32			sk_priority;

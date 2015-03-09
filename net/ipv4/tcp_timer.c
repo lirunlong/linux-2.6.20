@@ -25,8 +25,15 @@
 
 int sysctl_tcp_syn_retries __read_mostly = TCP_SYN_RETRIES;
 int sysctl_tcp_synack_retries __read_mostly = TCP_SYNACK_RETRIES;
+/*最后一次数据交换到第一次发送保活探测时间间隔  默认值为2h*/
 int sysctl_tcp_keepalive_time __read_mostly = TCP_KEEPALIVE_TIME;
+/*
+ *tcp发送保活探测，确定链接是否已经断开的次数，默认值为 9
+ */
 int sysctl_tcp_keepalive_probes __read_mostly = TCP_KEEPALIVE_PROBES;
+/*
+ * 保活探测消息的发送频率，通常为75s  tcp_keepalive_probes * tcp_keepalive_intvl 则为从开始探测到放弃探测确定断开的时间 大约11min
+ */
 int sysctl_tcp_keepalive_intvl __read_mostly = TCP_KEEPALIVE_INTVL;
 int sysctl_tcp_retries1 __read_mostly = TCP_RETR1;
 int sysctl_tcp_retries2 __read_mostly = TCP_RETR2;
