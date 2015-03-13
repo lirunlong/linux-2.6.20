@@ -401,6 +401,7 @@ extern int sysctl_tcp_synack_retries;
 
 EXPORT_SYMBOL_GPL(inet_csk_reqsk_queue_hash_add);
 
+/*扫描半连接队列*/
 void inet_csk_reqsk_queue_prune(struct sock *parent,
 				const unsigned long interval,
 				const unsigned long timeout,
@@ -409,6 +410,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
 	struct inet_connection_sock *icsk = inet_csk(parent);
 	struct request_sock_queue *queue = &icsk->icsk_accept_queue;
 	struct listen_sock *lopt = queue->listen_opt;
+	/*发送syn+ack的次数*/
 	int max_retries = icsk->icsk_syn_retries ? : sysctl_tcp_synack_retries;
 	int thresh = max_retries;
 	unsigned long now = jiffies;
@@ -446,6 +448,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
 		}
 	}
 
+	/*获取在启用加速连接的情况下最多允许重传SYN段的次数*/
 	if (queue->rskq_defer_accept)
 		max_retries = queue->rskq_defer_accept;
 
@@ -455,6 +458,7 @@ void inet_csk_reqsk_queue_prune(struct sock *parent,
 	do {
 		reqp=&lopt->syn_table[i];
 		while ((req = *reqp) != NULL) {
+			/*如果已经超时*/
 			if (time_after_eq(now, req->expires)) {
 				if ((req->retrans < thresh ||
 				     (inet_rsk(req)->acked && req->retrans < max_retries))

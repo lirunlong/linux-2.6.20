@@ -288,6 +288,7 @@ static void tcp_retransmit_timer(struct sock *sk)
 	struct tcp_sock *tp = tcp_sk(sk);
 	struct inet_connection_sock *icsk = inet_csk(sk);
 
+	/*未确认的tcp段为0，则go  out*/
 	if (!tp->packets_out)
 		goto out;
 
@@ -308,12 +309,15 @@ static void tcp_retransmit_timer(struct sock *sk)
 			       inet->num, tp->snd_una, tp->snd_nxt);
 		}
 #endif
+		/*当前时间-最近一次接收到ack的时间，>120秒  说明有错误发生*/
 		if (tcp_time_stamp - tp->rcv_tstamp > TCP_RTO_MAX) {
 			tcp_write_err(sk);
 			goto out;
 		}
+		/*进入拥塞控制的Loss状态*/
 		tcp_enter_loss(sk, 0);
 		tcp_retransmit_skb(sk, skb_peek(&sk->sk_write_queue));
+		/*因为发生了重传，所以传输控制块中的路由缓存需要更新,将其清除*/
 		__sk_dst_reset(sk);
 		goto out_reset_timer;
 	}
@@ -396,6 +400,7 @@ static void tcp_write_timer(unsigned long data)
 	bh_lock_sock(sk);
 	if (sock_owned_by_user(sk)) {
 		/* Try again later */
+		/*如果sock被用户进程锁定，  重启定时器*/
 		sk_reset_timer(sk, &icsk->icsk_retransmit_timer, jiffies + (HZ / 20));
 		goto out_unlock;
 	}
@@ -416,6 +421,7 @@ static void tcp_write_timer(unsigned long data)
 		tcp_retransmit_timer(sk);
 		break;
 	case ICSK_TIME_PROBE0:
+		/*坚持定时器，即0窗口探测定时器*/
 		tcp_probe_timer(sk);
 		break;
 	}

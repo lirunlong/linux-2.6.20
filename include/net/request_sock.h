@@ -28,15 +28,20 @@ struct proto;
 
 struct request_sock_ops {
 	int		family;
+	/*是tcp_request_sock结构长度，*/
 	int		obj_size;
 	struct kmem_cache	*slab;
+	/*发送SYN+ACK段的函数指针，tcp中为tcp_v4_send_synack(),*/
 	int		(*rtx_syn_ack)(struct sock *sk,
 				       struct request_sock *req,
 				       struct dst_entry *dst);
+	/*发送ack段的函数指针，tcp中为tcp_v4_send_ack*/
 	void		(*send_ack)(struct sk_buff *skb,
 				    struct request_sock *req);
+	/*发送rst段的函数指着，tcp中为tcp_v4_send_reset*/
 	void		(*send_reset)(struct sock *sk,
 				      struct sk_buff *skb);
+	/*在释放连接请求块时调用。tcp_v4_reqsk_destructor*/
 	void		(*destructor)(struct request_sock *req);
 };
 
@@ -44,16 +49,27 @@ struct request_sock_ops {
  */
 struct request_sock {
 	struct request_sock		*dl_next; /* Must be first member! */
+	/*客户端链接请求段中通告的MSS,如果无通告，则为初始值，RFC中建议的536*/
 	u16				mss;
+	/*发送SYN+ACK段的次数,达到系统上限时，取消连接操作*/
 	u8				retrans;
+	/*未使用*/
 	u8				__pad;
 	/* The following two fields can be easily recomputed I think -AK */
+	/*标识本端的最大通告窗口，在生成SYN+ACK时，计算该值*/
 	u32				window_clamp; /* window clamp at creation time */
+	/*标识在连接建立时，本端接收窗口大小，初始化为0，在生成SYN+ACK时计算该值*/
 	u32				rcv_wnd;	  /* rcv_wnd offered first time */
+	/*下一个将要发送的ACK中的时间戳值，当一个包含最后发送ACK确认序号的段到达时，该段中的时间戳被保存在ts_recent中*/
 	u32				ts_recent;
+	/*服务端接收到连接请求，并发送SYN+ACK段作为应答后，等待客户端确认的超时时间。一旦超时，会重新发送SYN+ACK,直到链接建立或重发次数达到上限*/
 	unsigned long			expires;
+	/*处理链接请求的函数指针表,tcp指向tcp_request_sock_ops*/
 	const struct request_sock_ops	*rsk_ops;
+	/*指向对应状态的传输控制块。在链接建立前无效，三次握手后会创建对应的传输控制块，而此时链接请求块也完成了使命，调用accept将链接请求块提取走，
+	 * 并释放*/
 	struct sock			*sk;
+	/*有关安全的id*/
 	u32				secid;
 	u32				peer_secid;
 };
@@ -86,12 +102,19 @@ extern int sysctl_max_syn_backlog;
  * @max_qlen_log - log_2 of maximal queued SYNs/REQUESTs
  */
 struct listen_sock {
+	/*实际分配用来保存SYN请求连接的syn_table结构数组的长度，值为nr_table_entries以2为低的对数*/
 	u8			max_qlen_log;
 	/* 3 bytes hole, try to use */
+	/*当前链接请求块数*/
 	int			qlen;
+	/*未重传过SYN+ACK的请求块数目，如果没有发生重传，qlen_yound==qlen,发生重传，qlen_yound--*/
 	int			qlen_young;
+	/*用于记录连接定时器处理函数下次激活时需处理的连接请求块散列表入口，在本次结束时，将当前的入口保存到该字段，
+	 * 在下次处理时，就从该入口开始处理*/
 	int			clock_hand;
+	/*用来计算syn请求块键值的随机数,在rsqsk_queue_alloc()中随机生成*/
 	u32			hash_rnd;
+	/*实际用来保存SYN请求链接的request_sock的结构数组长度*/
 	u32			nr_table_entries;
 	struct request_sock	*syn_table[0];
 };
@@ -115,7 +138,9 @@ struct listen_sock {
 struct request_sock_queue {
 	struct request_sock	*rskq_accept_head;
 	struct request_sock	*rskq_accept_tail;
+	/*访问listen_opt 以及listen_sock结构成员的同步控制读写锁*/
 	rwlock_t		syn_wait_lock;
+	/*保存相关tcp层的选项TCP_DEFER_ACCEPT的值*/
 	u8			rskq_defer_accept;
 	/* 3 bytes hole, try to pack */
 	struct listen_sock	*listen_opt;

@@ -520,15 +520,21 @@ extern u32	__tcp_select_window(struct sock *sk);
  * skbuff.h:skbuff->cb[xxx] size appropriately.
  */
 struct tcp_skb_cb {
+	/*三层协议的私有数据*/
 	union {
 		struct inet_skb_parm	h4;
 #if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE)
 		struct inet6_skb_parm	h6;
 #endif
 	} header;	/* For incoming frames		*/
+	/*当前段开始序号*/
 	__u32		seq;		/* Starting sequence number	*/
+	/*当前段开始序号加数据长度*/
 	__u32		end_seq;	/* SEQ + FIN + SYN + datalen	*/
+	/*段发送时间及段发送时记录的当前jiffies的值。必要时，此值也用来计算RTT*/
 	__u32		when;		/* used to compute rtt's	*/
+	/*记录原始TCP首部标志，发送过程中，tcp_transmit_skb()在发送TCP段之前会根据此标志来填充发送段的TCP首部的标志域，
+	 * 接收过程中，会提取接收段的TCP首部标志到该字段中*/
 	__u8		flags;		/* TCP header flags.		*/
 
 	/* NOTE: These must match up to the flags byte in a
@@ -543,20 +549,31 @@ struct tcp_skb_cb {
 #define TCPCB_FLAG_ECE		0x40
 #define TCPCB_FLAG_CWR		0x80
 
+	/*主要用来描述段的重传标志，同时标识包是否包含紧急数据
+	 * 值的注意的是，在描述包的重传状态之前，sacked值并非段的重传状态，而是SACK选项在tcp首部中的偏移，
+	 * 此值在接收tcp段之后的tcp_parse_options()中解析tcp选项时被赋值，而后在tcp_sacktag_write_queue中才真正
+	 * 根据SACK选项标记段的重传状态
+	 * */
 	__u8		sacked;		/* State flags for SACK/FACK.	*/
+	/*该段通过SACK被确认*/
 #define TCPCB_SACKED_ACKED	0x01	/* SKB ACK'd by a SACK block	*/
+	/*该段已经重传*/
 #define TCPCB_SACKED_RETRANS	0x02	/* SKB retransmitted		*/
+	/*该段在传输过程中丢失*/
 #define TCPCB_LOST		0x04	/* SKB is lost			*/
 #define TCPCB_TAGBITS		0x07	/* All tag bits			*/
 
 #define TCPCB_EVER_RETRANS	0x80	/* Ever retransmitted frame	*/
 #define TCPCB_RETRANS		(TCPCB_SACKED_RETRANS|TCPCB_EVER_RETRANS)
 
+	/*该段中存在紧急数据*/
 #define TCPCB_URG		0x20	/* Urgent pointer advanced here	*/
 
 #define TCPCB_AT_TAIL		(TCPCB_URG)
 
+	/*如果存在TCPCB_FLAG_URG 标志，则说明tcp段中有紧急数据，而urg_prt用来保存tcp首部中紧急指针值*/
 	__u16		urg_ptr;	/* Valid w/URG flags is set.	*/
+	/*接收到的TCP段 首部的确认序号*/
 	__u32		ack_seq;	/* Sequence number ACK'd	*/
 };
 

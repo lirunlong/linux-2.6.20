@@ -62,16 +62,27 @@ struct inet_request_sock {
 	u16			inet6_rsk_offset;
 	/* 2 bytes hole, try to pack */
 #endif
+	/*本地ip*/
 	__be32			loc_addr;
+	/*对端ip*/
 	__be32			rmt_addr;
+	/*对端端口*/
 	__be16			rmt_port;
+	/*窗口扩大因子*/
 	u16			snd_wscale : 4, 
+				/*接收窗口扩大因子*/
 				rcv_wscale : 4, 
+				/*标识tcp段是否存在tcp时间戳选项*/
 				tstamp_ok  : 1,
+				/*是否支持SACK*/
 				sack_ok	   : 1,
+				/*是否支持窗口扩大因子*/
 				wscale_ok  : 1,
+				/*是否支持显示拥塞通知*/
 				ecn_ok	   : 1,
+				/*标识已接收到第3此握手的ack段*/
 				acked	   : 1;
+	/*指向ip数据结构实例*/
 	struct ip_options	*opt;
 };
 
