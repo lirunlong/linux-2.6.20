@@ -830,6 +830,7 @@ static inline unsigned int skb_headlen(const struct sk_buff *skb)
 	return skb->len - skb->data_len;
 }
 
+/*获取skb中线性区和sg类型的聚合分散io分片中的长度，不包括fraglist中的长度*/
 static inline int skb_pagelen(const struct sk_buff *skb)
 {
 	int i, len = 0;
@@ -949,6 +950,7 @@ static inline unsigned char *pskb_pull(struct sk_buff *skb, unsigned int len)
 	return unlikely(len > skb->len) ? NULL : __pskb_pull(skb, len);
 }
 
+/*检查是否有len字节的长度 */
 static inline int pskb_may_pull(struct sk_buff *skb, unsigned int len)
 {
 	if (likely(len <= skb_headlen(skb)))
@@ -1197,6 +1199,7 @@ static inline struct sk_buff *netdev_alloc_skb(struct net_device *dev,
  *	The result is skb with writable area skb->head...skb->tail
  *	and at least @headroom of space at head.
  */
+/*确保skb存在headroom的空间 如果不足 则重新分配*/
 static inline int skb_cow(struct sk_buff *skb, unsigned int headroom)
 {
 	int delta = (headroom > NET_SKB_PAD ? headroom : NET_SKB_PAD) -

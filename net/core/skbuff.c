@@ -182,6 +182,7 @@ struct sk_buff *__alloc_skb(unsigned int size, gfp_t gfp_mask,
 
 	if (fclone) {
 		struct sk_buff *child = skb + 1;
+		/*fclone_ref 代表这两个skb有几个被使用   取值为0,1,2*/
 		atomic_t *fclone_ref = (atomic_t *) (child + 1);
 
 		skb->fclone = SKB_FCLONE_ORIG;
@@ -584,6 +585,7 @@ static void copy_skb_header(struct sk_buff *new, const struct sk_buff *old)
  *	header is going to be modified. Use pskb_copy() instead.
  */
 
+/*copy所有数据包 包括sg fraglist*/
 struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
 {
 	int headerlen = skb->data - skb->head;
@@ -623,6 +625,7 @@ struct sk_buff *skb_copy(const struct sk_buff *skb, gfp_t gfp_mask)
  *	The returned buffer has a reference count of 1.
  */
 
+/*copy数据区 不包括SG 和fraglist 数据区*/
 struct sk_buff *pskb_copy(struct sk_buff *skb, gfp_t gfp_mask)
 {
 	/*
@@ -682,6 +685,7 @@ out:
  *	reloaded after call to this function.
  */
 
+/*根据制定长度重新扩展headroom  和tailroom的空间,返回0  扩展成功*/
 int pskb_expand_head(struct sk_buff *skb, int nhead, int ntail,
 		     gfp_t gfp_mask)
 {
@@ -1470,6 +1474,7 @@ struct sk_buff *skb_dequeue_tail(struct sk_buff_head *list)
  *	the list and one reference dropped. This function takes the list
  *	lock and is atomic with respect to other list locking functions.
  */
+/*清空一个链表*/
 void skb_queue_purge(struct sk_buff_head *list)
 {
 	struct sk_buff *skb;
