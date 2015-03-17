@@ -2633,37 +2633,47 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 	ptr = (unsigned char *)(th + 1);
 	opt_rx->saw_tstamp = 0;
 
+	/*tcp包含选项字段*/
 	while(length>0) {
 	  	int opcode=*ptr++;
 		int opsize;
 
 		switch (opcode) {
+			/*选项结束kind*/
 			case TCPOPT_EOL:
 				return;
+				/*填充字段*/
 			case TCPOPT_NOP:	/* Ref: RFC 793 section 3.1 */
 				length--;
 				continue;
 			default:
+				/*选项length*/
 				opsize=*ptr++;
+				/*kind+lengh至少为2  所以如果为<2则为silly*/
 				if (opsize < 2) /* "silly options" */
 					return;
+				/*如果选项则段大于剩余选项长度，则不需要解析部分选项*/
 				if (opsize > length)
 					return;	/* don't parse partial options */
 	  			switch(opcode) {
+					/*最大报文段选项*/
 				case TCPOPT_MSS:
 					if(opsize==TCPOLEN_MSS && th->syn && !estab) {
 						u16 in_mss = ntohs(get_unaligned((__be16 *)ptr));
 						if (in_mss) {
+							/*取user_mss和in_mss中的最小值*/
 							if (opt_rx->user_mss && opt_rx->user_mss < in_mss)
 								in_mss = opt_rx->user_mss;
 							opt_rx->mss_clamp = in_mss;
 						}
 					}
 					break;
+					/*窗口扩大因子选项*/
 				case TCPOPT_WINDOW:
 					if(opsize==TCPOLEN_WINDOW && th->syn && !estab)
 						if (sysctl_tcp_window_scaling) {
 							__u8 snd_wscale = *(__u8 *) ptr;
+							/*接收方支持窗口扩大因子选项*/
 							opt_rx->wscale_ok = 1;
 							if (snd_wscale > 14) {
 								if(net_ratelimit())
@@ -2675,16 +2685,18 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 							opt_rx->snd_wscale = snd_wscale;
 						}
 					break;
+					/*时间戳选项*/
 				case TCPOPT_TIMESTAMP:
 					if(opsize==TCPOLEN_TIMESTAMP) {
-						if ((estab && opt_rx->tstamp_ok) ||
-						    (!estab && sysctl_tcp_timestamps)) {
+						if ((estab && opt_rx->tstamp_ok) ||/*已建立链接状态，已经启用时间戳选项*/
+						    (!estab && sysctl_tcp_timestamps)) {/*没有连接状态，系统配置启用时间戳选项*/
 							opt_rx->saw_tstamp = 1;
 							opt_rx->rcv_tsval = ntohl(get_unaligned((__be32 *)ptr));
 							opt_rx->rcv_tsecr = ntohl(get_unaligned((__be32 *)(ptr+4)));
 						}
 					}
 					break;
+					/*选择性确认*/
 				case TCPOPT_SACK_PERM:
 					if(opsize==TCPOLEN_SACK_PERM && th->syn && !estab) {
 						if (sysctl_tcp_sack) {
@@ -2694,10 +2706,12 @@ void tcp_parse_options(struct sk_buff *skb, struct tcp_options_received *opt_rx,
 					}
 					break;
 
+					/*SACK选项*/
 				case TCPOPT_SACK:
-					if((opsize >= (TCPOLEN_SACK_BASE + TCPOLEN_SACK_PERBLOCK)) &&
-					   !((opsize - TCPOLEN_SACK_BASE) % TCPOLEN_SACK_PERBLOCK) &&
+					if((opsize >= (TCPOLEN_SACK_BASE + TCPOLEN_SACK_PERBLOCK)) &&/*opsize至少大于kind+size+一个block=10*/
+					   !((opsize - TCPOLEN_SACK_BASE) % TCPOLEN_SACK_PERBLOCK) &&/*(opsize-2)%8 必须等于0，每个块的程度8(左边和右边序号各4byte*/
 					   opt_rx->sack_ok) {
+					   /*重传选项 在tcp头中的偏移*/
 						TCP_SKB_CB(skb)->sacked = (ptr - 2) - (unsigned char *)th;
 					}
 #ifdef CONFIG_TCP_MD5SIG
@@ -4419,6 +4433,7 @@ int tcp_rcv_state_process(struct sock *sk, struct sk_buff *skb,
 	case TCP_CLOSE:
 		goto discard;
 
+		/*处理半链接,只接收syn段*/
 	case TCP_LISTEN:
 		if(th->ack)
 			return 1;

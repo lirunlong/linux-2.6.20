@@ -497,6 +497,8 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	struct sock *child;
 
 	tmp_opt.saw_tstamp = 0;
+
+	/*存在tcp选项字段*/
 	if (th->doff > (sizeof(struct tcphdr)>>2)) {
 		tcp_parse_options(skb, &tmp_opt, 0);
 
@@ -512,6 +514,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	}
 
 	/* Check for pure retransmitted SYN. */
+	/*重传的SYN*/
 	if (TCP_SKB_CB(skb)->seq == tcp_rsk(req)->rcv_isn &&
 	    flg == TCP_FLAG_SYN &&
 	    !paws_reject) {
@@ -591,7 +594,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
 	 * Invalid ACK: reset will be sent by listening socket
 	 */
 	if ((flg & TCP_FLAG_ACK) &&
-	    (TCP_SKB_CB(skb)->ack_seq != tcp_rsk(req)->snt_isn + 1))
+	    (TCP_SKB_CB(skb)->ack_seq != tcp_rsk(req)->snt_isn + 1))/*确认序号不是初始序号+1 ，证明不是无效的syn的ack   返回sk，由后面的流程处理*/
 		return sk;
 
 	/* Also, it would be not so bad idea to check rcv_tsecr, which
@@ -705,6 +708,7 @@ struct sock *tcp_check_req(struct sock *sk,struct sk_buff *skb,
  * the new socket.
  */
 
+/*子传输控制块激活，准备接收tcp段*/
 int tcp_child_process(struct sock *parent, struct sock *child,
 		      struct sk_buff *skb)
 {

@@ -743,14 +743,17 @@ static int tcp_v4_send_synack(struct sock *sk, struct request_sock *req,
 	struct sk_buff * skb;
 
 	/* First, grab a route. */
+	/*超找路由*/
 	if (!dst && (dst = inet_csk_route_req(sk, req)) == NULL)
 		goto out;
 
+	/*生成一个syn+ack的skb段*/
 	skb = tcp_make_synack(sk, dst, req);
 
 	if (skb) {
 		struct tcphdr *th = skb->h.th;
 
+		/*设置校验和*/
 		th->check = tcp_v4_check(th, skb->len,
 					 ireq->loc_addr,
 					 ireq->rmt_addr,
@@ -1274,6 +1277,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	 * limitations, they conserve resources and peer is
 	 * evidently real one.
 	 */
+	/* syn请求链接队列(半链接队列)已满*/
 	if (inet_csk_reqsk_queue_is_full(sk) && !isn) {
 #ifdef CONFIG_SYN_COOKIES
 		if (sysctl_tcp_syncookies) {
@@ -1288,9 +1292,11 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	 * clogging syn queue with openreqs with exponentially increasing
 	 * timeout.
 	 */
+	/*如果建立三次握手成功没有被accept的队列已满，而且至少有一个没有syn+ack重传，则drop这个请求*/
 	if (sk_acceptq_is_full(sk) && inet_csk_reqsk_queue_young(sk) > 1)
 		goto drop;
 
+	/*分配一个链接请求块*/
 	req = reqsk_alloc(&tcp_request_sock_ops);
 	if (!req)
 		goto drop;
@@ -1299,6 +1305,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	tcp_rsk(req)->af_specific = &tcp_request_sock_ipv4_ops;
 #endif
 
+	/*解析SYN中的tcp选项字段*/
 	tcp_clear_options(&tmp_opt);
 	tmp_opt.mss_clamp = 536;
 	tmp_opt.user_mss  = tcp_sk(sk)->rx_opt.user_mss;
@@ -1321,6 +1328,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	}
 	tmp_opt.tstamp_ok = tmp_opt.saw_tstamp;
 
+	/*初始化链接请求块*/
 	tcp_openreq_init(req, &tmp_opt, skb);
 
 	if (security_inet_conn_request(sk, skb, req))
@@ -1331,12 +1339,13 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	ireq->rmt_addr = saddr;
 	ireq->opt = tcp_v4_save_options(sk, skb);
 	if (!want_cookie)
-		TCP_ECN_create_request(req, skb->h.th);
+		TCP_ECN_create_request(req, skb->h.th);/*设置是否支持ecn*/
 
 	if (want_cookie) {
 #ifdef CONFIG_SYN_COOKIES
 		syn_flood_warning(skb);
 #endif
+		/*获取cookie序号*/
 		isn = cookie_v4_init_sequence(sk, skb, &req->mss);
 	} else if (!isn) {
 		struct inet_peer *peer = NULL;
@@ -1391,6 +1400,7 @@ int tcp_v4_conn_request(struct sock *sk, struct sk_buff *skb)
 	if (tcp_v4_send_synack(sk, req, dst))
 		goto drop_and_free;
 
+	/*如果启用cookie 则释放request_sock,否则，添加到半链接队列*/
 	if (want_cookie) {
 	   	reqsk_free(req);
 	} else {
@@ -1409,6 +1419,7 @@ drop:
  * The three way handshake has completed - we got a valid synack -
  * now create the new socket.
  */
+/*完成3次握手后，为新连接创建一个传输控制块*/
 struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 				  struct request_sock *req,
 				  struct dst_entry *dst)
@@ -1421,6 +1432,7 @@ struct sock *tcp_v4_syn_recv_sock(struct sock *sk, struct sk_buff *skb,
 	struct tcp_md5sig_key *key;
 #endif
 
+	/*accept队列已满*/
 	if (sk_acceptq_is_full(sk))
 		goto exit_overflow;
 
@@ -1492,6 +1504,7 @@ static struct sock *tcp_v4_hnd_req(struct sock *sk, struct sk_buff *skb)
 	/* Find possible connection requests. */
 	struct request_sock *req = inet_csk_search_req(sk, &prev, th->source,
 						       iph->saddr, iph->daddr);
+	/*找到半链接的request_sock*/
 	if (req)
 		return tcp_check_req(sk, skb, req, prev);
 
@@ -1570,7 +1583,9 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	if (skb->len < (skb->h.th->doff << 2) || tcp_checksum_complete(skb))
 		goto csum_err;
 
+	/*listen状态  处理客户端的链接*/
 	if (sk->sk_state == TCP_LISTEN) {
+		/*处理第三次握手, nsk为子传输控制块*/
 		struct sock *nsk = tcp_v4_hnd_req(sk, skb);
 		if (!nsk)
 			goto discard;
@@ -1585,6 +1600,7 @@ int tcp_v4_do_rcv(struct sock *sk, struct sk_buff *skb)
 	}
 
 	TCP_CHECK_TIMER(sk);
+	/*处理establish状态和listen状态且已建立起半链接状态以外的所有情况*/
 	if (tcp_rcv_state_process(sk, skb, skb->h.th, skb->len)) {
 		rsk = sk;
 		goto reset;
