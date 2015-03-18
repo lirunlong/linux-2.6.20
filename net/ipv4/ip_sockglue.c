@@ -259,6 +259,8 @@ int ip_ra_control(struct sock *sk, unsigned char on, void (*destructor)(struct s
 	return 0;
 }
 
+/*icmp 莫跨哦调用传输层的出错处理函数，然后调用这个函数
+  将出错信息添加到输出该出错数据包的错误队列上*/
 void ip_icmp_error(struct sock *sk, struct sk_buff *skb, int err, 
 		   __be16 port, u32 info, u8 *payload)
 {
@@ -289,6 +291,7 @@ void ip_icmp_error(struct sock *sk, struct sk_buff *skb, int err,
 		kfree_skb(skb);
 }
 
+/*本地输出错误,添加到传输控制块的错误队列上*/
 void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 info)
 {
 	struct inet_sock *inet = inet_sk(sk);
@@ -321,6 +324,7 @@ void ip_local_error(struct sock *sk, int err, __be32 daddr, __be16 port, u32 inf
 	skb->h.raw = skb->tail;
 	__skb_pull(skb, skb->tail - skb->data);
 
+	/*添加到sock->sk_error_queue*/
 	if (sock_queue_err_skb(sk, skb))
 		kfree_skb(skb);
 }

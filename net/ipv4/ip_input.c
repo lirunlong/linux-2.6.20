@@ -272,6 +272,7 @@ int ip_local_deliver(struct sk_buff *skb)
 	/*如果还有更多分片 或offset>0,说明启用ip分片了*/
 	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
 		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
+		/*返回NULL，代表分片没有到齐，重组失败*/
 		if (!skb)
 			return 0;
 	}
@@ -388,6 +389,7 @@ int ip_rcv(struct sk_buff *skb, struct net_device *dev, struct packet_type *pt, 
 
 	IP_INC_STATS_BH(IPSTATS_MIB_INRECEIVES);
 
+	/*如果skb user!=1  则copy一份  递减原来skb的计数*/
 	if ((skb = skb_share_check(skb, GFP_ATOMIC)) == NULL) {
 		IP_INC_STATS_BH(IPSTATS_MIB_INDISCARDS);
 		goto out;

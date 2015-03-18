@@ -1558,8 +1558,17 @@ out:
 			Receiver routines
   =======================================================================*/
 
+/*非NAPI链路层的缓存队列长度上限*/
 int netdev_max_backlog = 1000;
+/*
+ * 在数据包输入软中断中，所有网络设备可从网络设备轮询队列中读取的报文总配额，当从网络设备读取的总报文数达到该值时，会结束本次读取，
+ * 并产生一个新的数据包输入软中断
+ */
 int netdev_budget = 300;
+/* 对应dev_weight系统变量
+ * 在数据包输入软中断中，单个网络设备可读取的报文配额。在达到该配额后，就不再继续从对应的网络设备读取报文，而是将其在网络设备轮询队列内从队首
+ * 移至队尾，直到下次轮询调整配额后，可再次读取报文
+ */
 int weight_p = 64;            /* old backlog weight */
 
 DEFINE_PER_CPU(struct netif_rx_stats, netdev_rx_stat) = { 0, };
@@ -1776,7 +1785,7 @@ static int ing_filter(struct sk_buff *skb)
 }
 #endif
 
-/*将skb上传到网络层*/
+/*将skb上传到网络层(NAPI)*/
 int netif_receive_skb(struct sk_buff *skb)
 {
 	struct packet_type *ptype, *pt_prev;

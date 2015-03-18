@@ -698,6 +698,7 @@ out_fail:
 }
 
 /* Process an incoming IP datagram fragment. */
+/*重组分片的ip数据包*/
 struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
 {
 	struct iphdr *iph = skb->nh.iph;

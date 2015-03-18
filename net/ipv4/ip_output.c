@@ -281,6 +281,7 @@ int ip_output(struct sk_buff *skb)
 			    !(IPCB(skb)->flags & IPSKB_REROUTED));
 }
 
+/*tcp输出接口*/
 int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
 {
 	struct sock *sk = skb->sk;
@@ -784,6 +785,7 @@ static inline int ip_ufo_append_data(struct sock *sk,
  *
  *	LATER: length must be adjusted by pad at tail, when it is required.
  */
+/*udp raw 套接口输出接口，tcp发送ack  rst段的函数最终也会调用这个函数*/
 int ip_append_data(struct sock *sk,
 		   int getfrag(void *from, char *to, int offset, int len,
 			       int odd, struct sk_buff *skb),
