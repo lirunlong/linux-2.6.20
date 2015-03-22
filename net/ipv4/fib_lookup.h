@@ -6,12 +6,21 @@
 #include <net/ip_fib.h>
 
 struct fib_alias {
+	/*将共享同一个fib_node的fib_alias实例链接在一起*/
 	struct list_head	fa_list;
 	struct rcu_head rcu;
+	/*fib_info实例，该实例存储着如何处理与该路由相匹配的数据包的消息*/
 	struct fib_info		*fa_info;
+	/*ip的TOS ,同一个fib_node的alias实例根据该字段递增排列
+	 * 路由的服务类型tos字段，为0时没有设置tos，所以在路由查找任何值时都可以匹配，
+	 * fa_tos用户对每一条路由表项配置的TOS,区别与fib_rule4中的tos
+	 * */
 	u8			fa_tos;
+	/*路由表项的类型，间接定义路由查找匹配时应采取的动作,如RTN_UNSPEC*/
 	u8			fa_type;
+	/*路由表的作用范围*/
 	u8			fa_scope;
+	/*一些标志的位图，目前只有一个标志，FA_S_ACCESSED表示该表项被访问过*/
 	u8			fa_state;
 };
 

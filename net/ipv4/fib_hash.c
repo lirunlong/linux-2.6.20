@@ -48,22 +48,37 @@
 static struct kmem_cache *fn_hash_kmem __read_mostly;
 static struct kmem_cache *fn_alias_kmem __read_mostly;
 
+/*代表某一个唯一的目的网络的路由表项,同一个子网中路由表项共享的信息。
+ * 目的网络相同，但其他配置参数不同的路由表项共享同一个fib_node实例，因此
+ * 一个fib_node存在一个或多个路由表项*/
 struct fib_node {
+	/*用于将三列表中同一个桶内所有的fib_node实例链接成一个双向链表*/
 	struct hlist_node	fn_hash;
+	/*指向一个或多个fib_alias实例构成的链表*/
 	struct list_head	fn_alias;
+	/*与一个网段相关  如10.0.1.0/24 则fn_key的值为10.0.1
+	 * fn_key与一个网段相关  不是与一个路由表项相关，多条路由表项可能有相同的路由
+	 * */
 	__be32			fn_key;
 };
-
+/*一个zone是一个有着相同地址掩码长度的路由表项的三列表*/
 struct fn_zone {
+	/*将活动的zone链接在一起的指针，头为fn_hash结构的fn_zone_list字段*/
 	struct fn_zone		*fz_next;	/* Next not empty zone	*/
+	/*指向存储在该zone中路由项的散列表*/
 	struct hlist_head	*fz_hash;	/* Hash table pointer	*/
+	/*在该zone散列表中fib_node的数目，用于检查是否要改变该散列表的容量*/
 	int			fz_nent;	/* Number of entries	*/
 
+	/*表示fz_hash的容量，及三列表桶的数目*/
 	int			fz_divisor;	/* Hash divisor		*/
+	/*fz_divisor-1*/
 	u32			fz_hashmask;	/* (fz_divisor - 1)	*/
 #define FZ_HASHMASK(fz)		((fz)->fz_hashmask)
 
+	/*在网络掩码fz_mask的长度，在代码中有些地方用prefixlen来表示，例如,网络眼吗255.255.255.0对应的fz_order为24*/
 	int			fz_order;	/* Zone order		*/
+	/*用fz_order构造的网络掩码，如fz_order为3，则fz_mask其10进制为224.0.0.0*/
 	__be32			fz_mask;
 #define FZ_MASK(fz)		((fz)->fz_mask)
 };
@@ -758,6 +773,7 @@ static int fn_hash_dump(struct fib_table *tb, struct sk_buff *skb, struct netlin
 	return skb->len;
 }
 
+/*路由表项初始化*/
 #ifdef CONFIG_IP_MULTIPLE_TABLES
 struct fib_table * fib_hash_init(u32 id)
 #else

@@ -157,19 +157,30 @@ struct rtmsg
 
 enum
 {
+	/*定义一个未初始化的类型，例如删除路由表时指定该值，因为删除操作不需要指定路由项的类型*/
 	RTN_UNSPEC,
+	/*该路由是到一个单播地址的直连或非直连路由，
+	 * 当通过ip route add 添加但没有指定类型的时候为RTN_UNICAST*/
 	RTN_UNICAST,		/* Gateway or direct route	*/
+	/*目的地址被配置为本地接口的一个地址*/
 	RTN_LOCAL,		/* Accept locally		*/
+	/*目的地址是一个广播地址，匹配的输入数据包以广播方式送入本地，匹配的输出数据包以广播方式发送出去*/
 	RTN_BROADCAST,		/* Accept locally as broadcast,
 				   send as broadcast */
+	/*ipv4未使用*/
 	RTN_ANYCAST,		/* Accept locally as broadcast,
 				   but send as unicast */
+	/*目的地址是一个多播地址*/
 	RTN_MULTICAST,		/* Multicast route		*/
+	
+	/*以下4个值与特定的管理配置相关连，根据类型来执行对应的动作，而与目的地址无关*/
 	RTN_BLACKHOLE,		/* Drop				*/
 	RTN_UNREACHABLE,	/* Destination is unreachable   */
 	RTN_PROHIBIT,		/* Administratively prohibited	*/
 	RTN_THROW,		/* Not in this table		*/
+	/*已废弃*/
 	RTN_NAT,		/* Translate this address	*/
+	/*由一个外部解析器来处理该路由*/
 	RTN_XRESOLVE,		/* Use external resolver	*/
 	__RTN_MAX
 };
@@ -179,11 +190,16 @@ enum
 
 /* rtm_protocol */
 
+/*表示字段无效*/
 #define RTPROT_UNSPEC	0
+/*icmp重定向设置的路由*/
 #define RTPROT_REDIRECT	1	/* Route installed by ICMP redirects;
 				   not used by current IPv4 */
+/*由内核设置的路由*/
 #define RTPROT_KERNEL	2	/* Route installed by kernel		*/
+/*诸如ip route 和route 等用户空间命令设置的路由*/
 #define RTPROT_BOOT	3	/* Route installed during boot		*/
+/*由管理员设置的路由*/
 #define RTPROT_STATIC	4	/* Route installed by administrator	*/
 
 /* Values of protocol >= RTPROT_STATIC are not interpreted by kernel;
@@ -193,12 +209,19 @@ enum
    avoid conflicts.
  */
 
+/*由GateD添加的路由*/
 #define RTPROT_GATED	8	/* Apparently, GateD */
+/*由rdisc添加的路由，RFC1256*/
 #define RTPROT_RA	9	/* RDISC/ND router advertisements */
+/*由多线程工具包添加的路由*/
 #define RTPROT_MRT	10	/* Merit MRT */
+/*由Zebra添加的路由*/
 #define RTPROT_ZEBRA	11	/* Zebra */
+/*由BIRD添加的路由*/
 #define RTPROT_BIRD	12	/* BIRD */
+/*由DECnet路由守护进程添加的路由*/
 #define RTPROT_DNROUTED	13	/* DECnet routing daemon */
+/*由XORP路由守护进程添加的路由*/
 #define RTPROT_XORP	14	/* XORP */
 #define RTPROT_NTK	15	/* Netsukuku */
 
