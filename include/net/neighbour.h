@@ -207,6 +207,7 @@ struct pneigh_entry
  */
 
 
+/*一个neigh_table对应一个邻居协议,所有的neigh_table链接到全局变量neigh_tables中*/
 struct neigh_table
 {
 	/*用来链接到neigh_tables中*/
@@ -428,6 +429,7 @@ static inline int neigh_hh_output(struct hh_cache *hh, struct sk_buff *skb)
 	return hh->hh_output(skb);
 }
 
+/*查找邻居项失败，根据参数create  是否创建一个邻居项*/
 static inline struct neighbour *
 __neigh_lookup(struct neigh_table *tbl, const void *pkey, struct net_device *dev, int creat)
 {
@@ -440,6 +442,7 @@ __neigh_lookup(struct neigh_table *tbl, const void *pkey, struct net_device *dev
 	return IS_ERR(n) ? NULL : n;
 }
 
+/*查找邻居项失败，则直接创建邻居项*/
 static inline struct neighbour *
 __neigh_lookup_errno(struct neigh_table *tbl, const void *pkey,
   struct net_device *dev)

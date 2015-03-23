@@ -117,11 +117,13 @@ unsigned long neigh_rand_reach_time(unsigned long base)
 }
 
 
+/* 同步清理邻居项*/
 static int neigh_forced_gc(struct neigh_table *tbl)
 {
 	int shrunk = 0;
 	int i;
 
+	/*递增gc统计计数*/
 	NEIGH_CACHE_STAT_INC(tbl, forced_gc_runs);
 
 	write_lock_bh(&tbl->lock);
@@ -236,6 +238,7 @@ int neigh_ifdown(struct neigh_table *tbl, struct net_device *dev)
 	return 0;
 }
 
+/*分配一个邻居项实例*/
 static struct neighbour *neigh_alloc(struct neigh_table *tbl)
 {
 	struct neighbour *n = NULL;
@@ -303,13 +306,16 @@ static void neigh_hash_free(struct neighbour **hash, unsigned int entries)
 		free_pages((unsigned long)hash, get_order(size));
 }
 
+/*邻居项散列表扩容*/
 static void neigh_hash_grow(struct neigh_table *tbl, unsigned long new_entries)
 {
 	struct neighbour **new_hash, **old_hash;
 	unsigned int i, new_hash_mask, old_entries;
 
+	/*递增扩容次数*/
 	NEIGH_CACHE_STAT_INC(tbl, hash_grows);
 
+	/*new_entries必须为2的冥*/
 	BUG_ON(new_entries & (new_entries - 1));
 	new_hash = neigh_hash_alloc(new_entries);
 	if (!new_hash)
@@ -339,6 +345,7 @@ static void neigh_hash_grow(struct neigh_table *tbl, unsigned long new_entries)
 	neigh_hash_free(old_hash, old_entries);
 }
 
+/*邻居项查找*/
 struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
 			       struct net_device *dev)
 {
@@ -360,6 +367,7 @@ struct neighbour *neigh_lookup(struct neigh_table *tbl, const void *pkey,
 	return n;
 }
 
+/*查找邻居项，比比较设备， 只比较三层协议地址*/
 struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, const void *pkey)
 {
 	struct neighbour *n;
@@ -380,10 +388,13 @@ struct neighbour *neigh_lookup_nodev(struct neigh_table *tbl, const void *pkey)
 	return n;
 }
 
+/* 完整创建一个邻居项
+@pkey:三层协议地址，作为散列表的关键字*/
 struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
 			       struct net_device *dev)
 {
 	u32 hash_val;
+	/*三层协议地址长度, ip 为4*/
 	int key_len = tbl->key_len;
 	int error;
 	struct neighbour *n1, *rc, *n = neigh_alloc(tbl);
@@ -398,12 +409,14 @@ struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
 	dev_hold(dev);
 
 	/* Protocol specific setup. */
+	/*arp中调用arp_constructor*/
 	if (tbl->constructor &&	(error = tbl->constructor(n)) < 0) {
 		rc = ERR_PTR(error);
 		goto out_neigh_release;
 	}
 
 	/* Device specific setup. */
+	/*ipv4中不需要该函数支持*/
 	if (n->parms->neigh_setup &&
 	    (error = n->parms->neigh_setup(n)) < 0) {
 		rc = ERR_PTR(error);
@@ -419,12 +432,15 @@ struct neighbour *neigh_create(struct neigh_table *tbl, const void *pkey,
 
 	hash_val = tbl->hash(pkey, dev) & tbl->hash_mask;
 
+	/*该邻居正在被删除*/
 	if (n->parms->dead) {
 		rc = ERR_PTR(-EINVAL);
 		goto out_tbl_unlock;
 	}
+	/*把该邻居项放入散列表*/
 
 	for (n1 = tbl->hash_buckets[hash_val]; n1; n1 = n1->next) {
+		/*如果存在 ，递增引用计数*/
 		if (dev == n1->dev && !memcmp(n1->primary_key, pkey, key_len)) {
 			neigh_hold(n1);
 			rc = n1;
@@ -633,6 +649,9 @@ static void neigh_connect(struct neighbour *neigh)
 		hh->hh_output = neigh->ops->hh_output;
 }
 
+/*异步清理邻居项 neigh_table->gc_timer()定时器驱动
+ * 异步清理 每次清理一个bucket， 每次从negih_table->hash_chain_gc清理一个桶
+ */
 static void neigh_periodic_timer(unsigned long arg)
 {
 	struct neigh_table *tbl = (struct neigh_table *)arg;
@@ -672,6 +691,8 @@ static void neigh_periodic_timer(unsigned long arg)
 		if (time_before(n->used, n->confirmed))
 			n->used = n->confirmed;
 
+		/*引用计数为1，状态为NUD_FAILED
+		 * 引用计数为1，限制时间超过parms->gc_staletime*/
 		if (atomic_read(&n->refcnt) == 1 &&
 		    (state == NUD_FAILED ||
 		     time_after(now, n->used + n->parms->gc_staletime))) {
@@ -928,6 +949,11 @@ static void neigh_update_hhs(struct neighbour *neigh)
    Caller MUST hold reference count on the entry.
  */
 
+/*更新制定的邻居项，更新内容包括硬件地址和状态
+ * parms@lladdr:新的硬件地址，
+ * @new：新的状态
+ * @flags:更新标志
+ * */
 int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 		 u32 flags)
 {
@@ -953,11 +979,12 @@ int neigh_update(struct neighbour *neigh, const u8 *lladdr, u8 new,
 			neigh_suspect(neigh);
 		neigh->nud_state = new;
 		err = 0;
-		notify = old & NUD_VALID;
+		notify = old & NUD_VALID;/*如果状态由有效便为无效，则需要通知感兴趣的模块*/
 		goto out;
 	}
 
 	/* Compare new lladdr with cached one */
+	/*网络设备不需要硬件地址*/
 	if (!dev->addr_len) {
 		/* First case: device needs no address. */
 		lladdr = neigh->ha;
@@ -1135,6 +1162,7 @@ int neigh_compat_output(struct sk_buff *skb)
 
 /* Slow and careful. */
 
+/*用于慢速而安全的输出，通常初始化negh_ops->output函数*/
 int neigh_resolve_output(struct sk_buff *skb)
 {
 	struct dst_entry *dst = skb->dst;
