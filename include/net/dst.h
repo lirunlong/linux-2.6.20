@@ -67,6 +67,7 @@ struct dst_entry
 	struct hh_cache		*hh;
 	struct xfrm_state	*xfrm;
 
+	/*分别处理输入报文和输出报文*/
 	int			(*input)(struct sk_buff*);
 	int			(*output)(struct sk_buff*);
 
